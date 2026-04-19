@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Products.Views.ProductDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Products.Models"
+    xmlns:productViews="clr-namespace:B2B.Mobile.Features.Products.Views"
+    Title="Ürün">
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Padding="16" Spacing="12">
+                <Border Style="{StaticResource Card}" Padding="0">
+                    <Grid RowDefinitions="Auto,Auto" Padding="12">
+                        <CarouselView ItemsSource="{Binding Detail.Images}"
+                                      HeightRequest="180"
+                                      IndicatorView="ImageIndicators"
+                                      Loop="True">
+                            <CarouselView.ItemTemplate>
+                                <DataTemplate x:DataType="models:ProductImage">
+                                    <Border StrokeShape="RoundRectangle 14"
+                                            BackgroundColor="{AppThemeBinding Light='#F1F3F5', Dark='#1F2226'}">
+                                        <Image Source="{Binding Url}"
+                                               Aspect="AspectFill"
+                                               HeightRequest="180">
+                                            <Image.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding BindingContext.OpenImagePreviewCommand, Source={RelativeSource AncestorType={x:Type productViews:ProductDetailPage}}}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Image.GestureRecognizers>
+                                        </Image>
+                                    </Border>
+                                </DataTemplate>
+                            </CarouselView.ItemTemplate>
+                        </CarouselView>
+
+                        <IndicatorView x:Name="ImageIndicators"
+                                       Grid.Row="1"
+                                       HorizontalOptions="Center"
+                                       Margin="0,10,0,0" />
+                    </Grid>
+                </Border>
+
+                <Label Text="{Binding Detail.Name}" Style="{StaticResource Title}" />
+                <Label Text="{Binding Detail.Sku}" Style="{StaticResource Caption}" />
+                <Label Text="{Binding Detail.CategoryName, StringFormat='Kategori: {0}'}"
+                       Style="{StaticResource Caption}"
+                       IsVisible="{Binding Detail.CategoryName, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                <Border Style="{StaticResource Card}" Padding="12">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" RowSpacing="8" ColumnSpacing="10">
+                        <VerticalStackLayout>
+                            <Label Text="Bayi" Style="{StaticResource Caption}" />
+                            <Label Text="{Binding Detail.DealerPrice, StringFormat='{0:0.####}'}" FontAttributes="Bold" FontSize="18" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="End">
+                            <Label Text="Tavsiye" Style="{StaticResource Caption}" HorizontalTextAlignment="End" />
+                            <Label Text="{Binding Detail.MsrpPrice, StringFormat='{0:0.####}'}" FontAttributes="Bold" FontSize="18" HorizontalTextAlignment="End" TextDecorations="Strikethrough" />
+                        </VerticalStackLayout>
+
+                        <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                            <Label Grid.Column="0"
+                                   Text="{Binding Detail.StockQuantity, StringFormat='Stok: {0}'}"
+                                   Style="{StaticResource Caption}" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding Detail.CurrencyCode}"
+                                   Style="{StaticResource Caption}"
+                                   HorizontalTextAlignment="End" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="12">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Özellikler" Style="{StaticResource Title2}" />
+
+                        <CollectionView ItemsSource="{Binding Detail.Specs}"
+                                        SelectionMode="None">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Padding="0,6">
+                                        <Label Grid.Column="0" Text="{Binding Key}" Style="{StaticResource Caption}" />
+                                        <Label Grid.Column="1" Text="{Binding Value}" HorizontalTextAlignment="End" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border Grid.Row="1" BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource OffBlack}}" StrokeThickness="0" Padding="12">
+            <Grid ColumnDefinitions="Auto,44,52,44,*" ColumnSpacing="8" RowDefinitions="Auto">
+                <Label Grid.Column="0" Text="Adet" VerticalOptions="Center" />
+                <Button Grid.Column="1"
+                        Text="−"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="0"
+                        Command="{Binding DecrementCartQuantityCommand}"
+                        VerticalOptions="Center" />
+                <Border Grid.Column="2" Style="{StaticResource InputContainer}" Padding="6,4" VerticalOptions="Center">
+                    <Entry Keyboard="Numeric"
+                           HorizontalTextAlignment="Center"
+                           Text="{Binding Quantity}" />
+                </Border>
+                <Button Grid.Column="3"
+                        Text="+"
+                        Style="{StaticResource SecondaryButton}"
+                        Padding="0"
+                        Command="{Binding IncrementCartQuantityCommand}"
+                        VerticalOptions="Center" />
+                <Button Grid.Column="4"
+                        Text="Sepete ekle"
+                        Command="{Binding AddToCartCommand}"
+                        VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Tam ekran görsel önizleme (dokunarak kapat) -->
+        <Grid Grid.RowSpan="2"
+              ZIndex="100"
+              BackgroundColor="#E6000000"
+              IsVisible="{Binding ImagePreviewUrl, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+              InputTransparent="False">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseImagePreviewCommand}" />
+            </Grid.GestureRecognizers>
+            <Image Source="{Binding ImagePreviewUrl}"
+                   Aspect="AspectFit"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Fill"
+                   Margin="16">
+                <Image.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CloseImagePreviewCommand}" />
+                </Image.GestureRecognizers>
+            </Image>
+            <Label Text="Kapatmak için dokunun"
+                   Style="{StaticResource Caption}"
+                   TextColor="White"
+                   HorizontalOptions="Center"
+                   VerticalOptions="End"
+                   Margin="0,0,0,24"
+                   InputTransparent="True" />
+        </Grid>
+    </Grid>
+</ContentPage>

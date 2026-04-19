@@ -1,0 +1,87 @@
+﻿@page "/"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+@inject AuthSession Auth
+@inject NavigationManager Nav
+
+<PageTitle>Yönetim paneli</PageTitle>
+
+<h1>Yönetim paneli</h1>
+
+<p class="text-muted">Sol menüden veya aşağıdaki kısayollardan modüllere gidebilirsiniz.</p>
+
+@if (!HasToken)
+{
+    <div class="alert alert-info">
+        Çoğu işlem için önce <a href="login">giriş yapın</a>.
+    </div>
+}
+
+<div class="row g-3 mt-2">
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Ürünler</h5>
+                <p class="card-text small text-muted">Katalog, stok ve görseller</p>
+                <button type="button" class="btn btn-primary" @onclick="@(() => Nav.NavigateTo("/products"))">Aç</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Kategoriler</h5>
+                <p class="card-text small text-muted">Kategori ağacı ve sıralama</p>
+                <button type="button" class="btn btn-primary" @onclick="@(() => Nav.NavigateTo("/categories"))">Aç</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-warning">
+            <div class="card-body">
+                <h5 class="card-title">Bayi onayları</h5>
+                <p class="card-text small text-muted">
+                    Kayıt olan bayiler yönetici onayından sonra giriş yapabilir.
+                    @if (PendingDealerCount is not null)
+                    {
+                        <span class="badge bg-warning text-dark ms-1">@PendingDealerCount bekliyor</span>
+                    }
+                </p>
+                <button type="button" class="btn btn-warning" @onclick="@(() => Nav.NavigateTo("/pending-dealers"))">Onay bekleyenler</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Siparişler</h5>
+                <p class="card-text small text-muted">Gelen siparişler ve durum güncelleme</p>
+                <button type="button" class="btn btn-primary" @onclick="@(() => Nav.NavigateTo("/orders"))">Aç</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool HasToken;
+    private int? PendingDealerCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await Auth.GetAccessTokenAsync();
+        HasToken = !string.IsNullOrWhiteSpace(token);
+        if (!HasToken)
+            return;
+
+        try
+        {
+            var resp = await Api.GetPendingDealersAsync();
+            if (resp.Success && resp.Data is not null)
+                PendingDealerCount = resp.Data.Count;
+        }
+        catch
+        {
+            PendingDealerCount = null;
+        }
+    }
+}

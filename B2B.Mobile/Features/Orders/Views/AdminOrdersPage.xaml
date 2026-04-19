@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Orders.Views.AdminOrdersPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Orders.Models"
+    xmlns:local="clr-namespace:B2B.Mobile.Features.Orders.Views"
+    x:Name="AdminOrdersPageRoot"
+    Title="Sipariş onayları">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsListRefreshing}"
+                     Command="{Binding PullToRefreshCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+                    <Label Text="Gelen siparişler" Style="{StaticResource Title}" />
+                    <Label Text="Bayilerin verdiği siparişleri görüntüleyin; detayda durum güncelleyebilirsiniz."
+                           Style="{StaticResource Caption}" />
+
+                    <Border Style="{StaticResource Card}" Padding="12">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Durum filtresi" Style="{StaticResource Caption}" />
+                            <Picker Title="Durum" SelectedIndex="{Binding FilterPickerIndex}">
+                                <Picker.Items>
+                                    <x:String>Tümü</x:String>
+                                    <x:String>Taslak</x:String>
+                                    <x:String>Verildi</x:String>
+                                    <x:String>Ödendi</x:String>
+                                    <x:String>Kargoda</x:String>
+                                    <x:String>İptal</x:String>
+                                </Picker.Items>
+                            </Picker>
+                            <Button Text="Listele" Command="{Binding ApplyFilterCommand}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Padding="12"
+                            IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
+                    </Border>
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+                    <CollectionView ItemsSource="{Binding Items}" SelectionMode="None">
+                        <CollectionView.EmptyView>
+                            <Label Text="Kayıt yok." Style="{StaticResource Caption}" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:AdminOrderListItem">
+                                <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,8">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                                        <Label Grid.Row="0" Grid.Column="0" FontAttributes="Bold" Text="{Binding OrderNumber, StringFormat='Sipariş #{0}'}" />
+                                        <HorizontalStackLayout Grid.Row="0" Grid.Column="1" VerticalOptions="Start" Spacing="4">
+                                            <Label FontAttributes="Bold" Text="{Binding GrandTotal, StringFormat='{0:0.##}'}" />
+                                            <Label FontAttributes="Bold" Text="{Binding CurrencyCode}" />
+                                        </HorizontalStackLayout>
+                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Caption}"
+                                               Text="{Binding Status, Converter={StaticResource OrderStatusLabelConverter}, StringFormat='Durum: {0}'}" />
+                                        <Label Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource Caption}" Text="{Binding CreatedAtUtc, StringFormat='{0:u}'}" />
+                                        <Label Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Caption}" LineBreakMode="TailTruncation"
+                                               Text="{Binding BuyerEmail}" />
+                                        <Label Grid.Row="4" Grid.ColumnSpan="2" Style="{StaticResource Caption}" LineBreakMode="TailTruncation"
+                                               Text="{Binding SellerDisplayName, StringFormat='Satıcı: {0}'}" />
+                                        <Button Grid.Row="5" Grid.ColumnSpan="2"
+                                                Margin="0,10,0,0"
+                                                Text="Detay"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Command="{Binding BindingContext.SelectOrderCommand, Source={RelativeSource AncestorType={x:Type local:AdminOrdersPage}}}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
+                        <Button Text="Önceki"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding PrevPageCommand}"
+                                IsEnabled="{Binding CanGoPrev}" />
+                        <Label Grid.Column="1"
+                               VerticalOptions="Center"
+                               Style="{StaticResource Caption}"
+                               Text="{Binding PageSummary}" />
+                        <Button Grid.Column="2"
+                                Text="Sonraki"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding NextPageCommand}"
+                                IsEnabled="{Binding CanGoNext}" />
+                    </Grid>
+
+                    <Border IsVisible="{Binding HasSelectedDetail}" Style="{StaticResource Card}" Padding="12">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label FontAttributes="Bold"
+                                       Text="{Binding SelectedDetail.OrderNumber, StringFormat='Sipariş #{0}', TargetNullValue=''}" />
+                                <Button Grid.Column="1"
+                                        Text="Kapat"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding CloseDetailCommand}" />
+                            </Grid>
+                            <Label FontAttributes="Bold" Text="{Binding DetailStatusLine}" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="{Binding SelectedDetail.BuyerEmail, StringFormat='Bayi: {0}', TargetNullValue=''}" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="{Binding SelectedDetail.SellerDisplayName, StringFormat='Satıcı: {0}', TargetNullValue=''}" />
+                            <Label FontAttributes="Bold" Text="{Binding DetailGrandTotalLine}" />
+
+                            <CollectionView ItemsSource="{Binding SelectedDetail.Items}" HeightRequest="220">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AdminOrderLine">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,4">
+                                            <Label Grid.Column="0" LineBreakMode="TailTruncation" Text="{Binding ProductName}" />
+                                            <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding Quantity, StringFormat='x{0}'}" />
+                                            <Label Grid.Column="2" Text="{Binding UnitPrice, StringFormat='{0:0.##}'}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                            <Label Style="{StaticResource Caption}"
+                                   Text="{Binding SelectedDetail.CurrencyCode, StringFormat='Satır birim fiyatları ({0})'}" />
+
+                            <Label Text="{Binding DetailError}"
+                                   TextColor="{StaticResource Error}"
+                                   IsVisible="{Binding DetailError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                            <Label Text="Bu aşamada durum değiştirilemez (kargoda veya iptal)."
+                                   Style="{StaticResource Caption}"
+                                   IsVisible="{Binding CanEditOrderStatus, Converter={StaticResource InverseBoolConverter}}" />
+
+                            <VerticalStackLayout Spacing="8" IsVisible="{Binding CanEditOrderStatus}">
+                                <Label Text="Durum güncelle" Style="{StaticResource Caption}" />
+                                <Border Style="{StaticResource InputContainer}">
+                                    <Picker Title="Yeni durum"
+                                            ItemsSource="{Binding NextStatusOptions}"
+                                            ItemDisplayBinding="{Binding Label}"
+                                            SelectedItem="{Binding SelectedNextStatusOption}" />
+                                </Border>
+                                <Button Text="Durumu kaydet"
+                                        Command="{Binding SaveStatusCommand}"
+                                        IsEnabled="{Binding CanSaveDetailStatus}" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

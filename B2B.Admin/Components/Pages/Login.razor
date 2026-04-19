@@ -1,0 +1,66 @@
+@page "/login"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Giriş</PageTitle>
+
+<h1>Giriş</h1>
+
+<div class="row">
+    <div class="col-12 col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">E-posta</label>
+                    <input class="form-control" @bind="Email" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Şifre</label>
+                    <input class="form-control" type="password" @bind="Password" />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Error))
+                {
+                    <div class="alert alert-danger">@Error</div>
+                }
+
+                <button class="btn btn-primary" @onclick="DoLogin" disabled="@IsBusy">
+                    @(IsBusy ? "Giriş yapılıyor..." : "Giriş yap")
+                </button>
+            </div>
+        </div>
+        <div class="text-muted mt-2">
+            Demo yönetici: <code>admin@b2b.local</code> / <code>Admin123!ChangeMe</code>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Email { get; set; } = "admin@b2b.local";
+    private string Password { get; set; } = "Admin123!ChangeMe";
+    private bool IsBusy { get; set; }
+    private string? Error { get; set; }
+
+    private async Task DoLogin()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.LoginAsync(Email, Password);
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Giriş başarısız.";
+                return;
+            }
+
+            Nav.NavigateTo("/");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}
+

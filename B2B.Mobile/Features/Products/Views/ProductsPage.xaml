@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Products.Views.ProductsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Products.Models"
+    Title="Ürünler">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="12" RowSpacing="8">
+        <shell:MainHeaderView Grid.Row="0"
+                              LeftCaption="{Binding FilterSummary, StringFormat='Kategori: {0}'}" />
+
+        <!-- Arama + tara: tek satır, tara kompakt -->
+        <Border Grid.Row="1"
+                Style="{StaticResource InputContainer}"
+                Padding="6,4">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" VerticalOptions="Center">
+                <SearchBar Grid.Column="0"
+                           Placeholder="Ürün ara (ad veya SKU)"
+                           Text="{Binding Query}"
+                           SearchCommand="{Binding RefreshCommand}"
+                           BackgroundColor="Transparent"
+                           HorizontalOptions="Fill"
+                           VerticalOptions="Center" />
+                <Button Grid.Column="1"
+                        Text="Tara"
+                        SemanticProperties.Description="Barkod ile ürün tara"
+                        Style="{StaticResource SecondaryButton}"
+                        FontSize="12"
+                        Padding="10,6"
+                        MinimumWidthRequest="52"
+                        MaximumWidthRequest="68"
+                        HeightRequest="40"
+                        CornerRadius="10"
+                        VerticalOptions="Center"
+                        Command="{Binding ScanCommand}" />
+            </Grid>
+        </Border>
+
+        <HorizontalStackLayout Grid.Row="2"
+                                 Spacing="8"
+                                 IsVisible="{Binding CanManageProducts}"
+                                 VerticalOptions="Center">
+            <Label Text="Pasif ürünleri göster"
+                   Style="{StaticResource Caption}"
+                   VerticalOptions="Center" />
+            <Switch IsToggled="{Binding IncludeInactiveProducts}"
+                    VerticalOptions="Center" />
+        </HorizontalStackLayout>
+
+        <Border Grid.Row="3"
+                Style="{StaticResource Card}"
+                Padding="12"
+                IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="{Binding Error}"
+                       TextColor="{StaticResource Error}" />
+                <Button Text="Yeniden dene"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding RefreshCommand}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <RefreshView Grid.Row="4"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding RefreshCommand}">
+            <CollectionView x:Name="ProductsCollection"
+                ItemsSource="{Binding Items}"
+                RemainingItemsThreshold="6"
+                RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
+                SelectionMode="Single"
+                SelectionChanged="OnSelectionChanged">
+
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Padding="24" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Label Text="{Binding CatalogEmptyTitle}" Style="{StaticResource Title}" HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding CatalogEmptyHint}" Style="{StaticResource Caption}" HorizontalTextAlignment="Center" />
+                        <Button Text="Yenile" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ProductListItem">
+                        <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,4">
+                            <VerticalStackLayout Spacing="0">
+                                <Border BackgroundColor="{AppThemeBinding Light={StaticResource CatalogImageBgLight}, Dark={StaticResource CatalogImageBgDark}}"
+                                        StrokeThickness="0"
+                                        HeightRequest="168"
+                                        StrokeShape="RoundRectangle 12,12,0,0">
+                                    <Image Source="{Binding PrimaryImageUrl, Converter={StaticResource UrlToImageSourceConverter}}"
+                                           Aspect="AspectFill"
+                                           HeightRequest="168"
+                                           HorizontalOptions="Fill"
+                                           VerticalOptions="Fill" />
+                                </Border>
+
+                                <Border BackgroundColor="{StaticResource Gray600}"
+                                        StrokeThickness="0"
+                                        Padding="8,5"
+                                        IsVisible="{Binding IsActive, Converter={StaticResource InverseBoolConverter}}">
+                                    <Label Text="Pasif ürün"
+                                           TextColor="White"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <Border BackgroundColor="{StaticResource Error}"
+                                        StrokeThickness="0"
+                                        Padding="8,5">
+                                    <Border.IsVisible>
+                                        <MultiBinding Converter="{StaticResource ActiveAndOutOfStockConverter}">
+                                            <Binding Path="IsActive" />
+                                            <Binding Path="StockQuantity" />
+                                        </MultiBinding>
+                                    </Border.IsVisible>
+                                    <Label Text="Stokta yok"
+                                           TextColor="White"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <Border BackgroundColor="{StaticResource Tertiary}"
+                                        StrokeThickness="0"
+                                        Padding="8,5">
+                                    <Border.IsVisible>
+                                        <MultiBinding Converter="{StaticResource ActiveAndLowStockConverter}">
+                                            <Binding Path="IsActive" />
+                                            <Binding Path="StockQuantity" />
+                                        </MultiBinding>
+                                    </Border.IsVisible>
+                                    <Label Text="{Binding StockQuantity, StringFormat='Son {0} adet — acele edin'}"
+                                           TextColor="White"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <Border BackgroundColor="{StaticResource Success}"
+                                        StrokeThickness="0"
+                                        Padding="8,5">
+                                    <Border.IsVisible>
+                                        <MultiBinding Converter="{StaticResource ActiveAndPlentyStockConverter}">
+                                            <Binding Path="IsActive" />
+                                            <Binding Path="StockQuantity" />
+                                        </MultiBinding>
+                                    </Border.IsVisible>
+                                    <Label Text="Stokta"
+                                           TextColor="White"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <VerticalStackLayout Padding="12,10,12,12" Spacing="6">
+                                    <Label Text="{Binding SellerDisplayName}"
+                                           FontAttributes="Bold"
+                                           FontSize="13"
+                                           LineBreakMode="TailTruncation"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource White}}" />
+
+                                    <Label Text="{Binding Name}"
+                                           FontSize="13"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray200}}" />
+
+                                    <Label Text="{Binding Sku}"
+                                           Style="{StaticResource Caption}"
+                                           LineBreakMode="TailTruncation" />
+
+                                    <Label Text="{Binding CategoryName}"
+                                           Style="{StaticResource Caption}"
+                                           LineBreakMode="TailTruncation"
+                                           IsVisible="{Binding CategoryName, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="{Binding DealerPrice, StringFormat='{0:0.##}'}"
+                                               FontAttributes="Bold"
+                                               FontSize="17"
+                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                               VerticalOptions="End" />
+                                        <Label Text="{Binding CurrencyCode}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                               VerticalOptions="End" />
+                                    </HorizontalStackLayout>
+
+                                    <Label Text="{Binding MsrpPrice, StringFormat='{0:0.##}'}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                           TextDecorations="Strikethrough">
+                                        <Label.IsVisible>
+                                            <MultiBinding Converter="{StaticResource MsrpVisibleWhenDiscountConverter}">
+                                                <Binding Path="MsrpPrice" />
+                                                <Binding Path="DealerPrice" />
+                                            </MultiBinding>
+                                        </Label.IsVisible>
+                                    </Label>
+
+                                    <Button Text="Sepete ekle"
+                                            Margin="0,4,0,0"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                            BorderWidth="1"
+                                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                            HeightRequest="40"
+                                            CornerRadius="12"
+                                            Padding="12,8"
+                                            Command="{Binding BindingContext.AddToCartQuickCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                            CommandParameter="{Binding .}" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

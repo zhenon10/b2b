@@ -1,0 +1,19 @@
+﻿@page "/counter"
+@rendermode InteractiveServer
+
+<PageTitle>Sayaç</PageTitle>
+
+<h1>Sayaç</h1>
+
+<p role="status">Mevcut değer: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Arttır</button>
+
+@code {
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}

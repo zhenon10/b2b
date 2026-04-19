@@ -1,0 +1,213 @@
+@page "/categories"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>Kategoriler</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between">
+    <h1>Kategoriler</h1>
+    <button class="btn btn-primary" @onclick="StartCreate" disabled="@IsBusy">Yeni kategori</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="alert alert-danger">@Error</div>
+}
+
+@if (IsBusy && Items.Count == 0)
+{
+    <p>Yükleniyor...</p>
+}
+else if (Items.Count == 0)
+{
+    <p class="text-muted">Henüz kategori yok.</p>
+}
+else
+{
+    <div class="table-responsive mt-3">
+        <table class="table table-striped align-middle">
+            <thead>
+            <tr>
+                <th>Ad</th>
+                <th>Sıra</th>
+                <th>Aktif</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var c in Items)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>@c.SortOrder</td>
+                    <td>@(c.IsActive ? "Evet" : "Hayır")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => StartEdit(c))">Düzenle</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteAsync(c))">Sil</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (EditorOpen)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(EditingId is null ? "Yeni kategori" : "Kategoriyi düzenle")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditor"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label">Ad</label>
+                        <input class="form-control" @bind="EditName" @bind:event="oninput" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Sıra</label>
+                        <input class="form-control" type="number" @bind="EditSortOrder" />
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="catActive" @bind="EditIsActive" />
+                        <label class="form-check-label" for="catActive">Aktif</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="CloseEditor">İptal</button>
+                    <button class="btn btn-primary" type="button" @onclick="SaveAsync" disabled="@IsBusy">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private bool IsBusy { get; set; } = true;
+    private string? Error { get; set; }
+    private List<B2BApiClient.CategoryListItem> Items { get; set; } = new();
+
+    private bool EditorOpen { get; set; }
+    private Guid? EditingId { get; set; }
+    private string EditName { get; set; } = "";
+    private int EditSortOrder { get; set; }
+    private bool EditIsActive { get; set; } = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.GetCategoriesAsync(includeInactive: true);
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Kategoriler yüklenemedi. Lütfen yönetici olarak giriş yapın.";
+                Items = new();
+                return;
+            }
+
+            Items = resp.Data.OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToList();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        Error = null;
+        EditingId = null;
+        EditName = "";
+        EditSortOrder = Items.Count == 0 ? 0 : Items.Max(x => x.SortOrder) + 1;
+        EditIsActive = true;
+        EditorOpen = true;
+    }
+
+    private void StartEdit(B2BApiClient.CategoryListItem c)
+    {
+        Error = null;
+        EditingId = c.CategoryId;
+        EditName = c.Name;
+        EditSortOrder = c.SortOrder;
+        EditIsActive = c.IsActive;
+        EditorOpen = true;
+    }
+
+    private void CloseEditor()
+    {
+        EditorOpen = false;
+        EditingId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(EditName))
+            {
+                Error = "Kategori adı gerekli.";
+                return;
+            }
+
+            if (EditingId is null)
+            {
+                var resp = await Api.CreateCategoryAsync(new B2BApiClient.CreateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
+                if (!resp.Success)
+                {
+                    Error = resp.Error?.Message ?? "Kategori oluşturulamadı.";
+                    return;
+                }
+            }
+            else
+            {
+                var resp = await Api.UpdateCategoryAsync(EditingId.Value, new B2BApiClient.UpdateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
+                if (!resp.Success)
+                {
+                    Error = resp.Error?.Message ?? "Kategori güncellenemedi.";
+                    return;
+                }
+            }
+
+            CloseEditor();
+            await LoadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(B2BApiClient.CategoryListItem c)
+    {
+        if (!await Js.InvokeAsync<bool>("confirm", $"'{c.Name}' kategorisini silmek istiyor musunuz? Ürünlerdeki kategori bağlantısı kaldırılır."))
+            return;
+
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.DeleteCategoryAsync(c.CategoryId);
+            if (!resp.Success)
+            {
+                Error = resp.Error?.Message ?? "Kategori silinemedi.";
+                return;
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}

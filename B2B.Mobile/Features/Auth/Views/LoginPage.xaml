@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Auth.Views.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Giriş">
+
+    <ScrollView>
+        <Grid Padding="24" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="18">
+            <VerticalStackLayout Grid.Row="0" Spacing="6">
+                <Label Text="Tekrar hoş geldiniz" Style="{StaticResource TitleLarge}" />
+                <Label Text="Devam etmek için giriş yapın." Style="{StaticResource Caption}" />
+            </VerticalStackLayout>
+
+            <Border Grid.Row="1"
+                    Padding="12"
+                    Style="{StaticResource Card}"
+                    IsVisible="{Binding InfoBanner, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                <Label Text="{Binding InfoBanner}"
+                       Style="{StaticResource Caption}"
+                       TextColor="{StaticResource Primary}" />
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Border Style="{StaticResource InputContainer}">
+                        <Entry Placeholder="E-posta" Keyboard="Email" Text="{Binding Email}" />
+                    </Border>
+                    <Border Style="{StaticResource InputContainer}">
+                        <Entry Placeholder="Şifre" IsPassword="True" Text="{Binding Password}" />
+                    </Border>
+
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <CheckBox IsChecked="{Binding RememberMe}" VerticalOptions="Center" />
+                        <Label Text="Beni hatırla" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                    </HorizontalStackLayout>
+
+                    <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
+                    </Border>
+
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Text="Giriş yap"
+                                Command="{Binding LoginCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                    </Grid>
+
+                    <Button Text="Hesap oluştur"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding GoToRegisterCommand}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </ScrollView>
+</ContentPage>

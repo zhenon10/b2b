@@ -1,0 +1,104 @@
+@page "/pending-dealers"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+
+<PageTitle>Onay bekleyen bayiler</PageTitle>
+
+<h1>Onay bekleyen bayiler</h1>
+
+<p class="text-muted">Mobil uygulamadan kayıt olan bayi hesapları. Onayladıktan sonra giriş yapabilirler.</p>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="alert alert-danger">@Error</div>
+}
+
+@if (IsLoading)
+{
+    <p>Yükleniyor…</p>
+}
+else if (Items.Count == 0)
+{
+    <p>Onay bekleyen bayi yok.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>E-posta</th>
+                    <th>Görünen ad</th>
+                    <th>Kayıt (UTC)</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Items)
+                {
+                    <tr>
+                        <td>@row.Email</td>
+                        <td>@(row.DisplayName ?? "—")</td>
+                        <td>@row.CreatedAtUtc.ToString("u")</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" disabled="@IsBusy" @onclick="() => ApproveAsync(row.UserId)">Onayla</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<B2BApiClient.PendingDealerDto> Items { get; set; } = new();
+    private bool IsLoading = true;
+    private bool IsBusy;
+    private string? Error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        Error = null;
+        IsLoading = true;
+        try
+        {
+            var resp = await Api.GetPendingDealersAsync();
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Liste alınamadı. Yönetici olarak giriş yaptığınızdan emin olun.";
+                Items = new List<B2BApiClient.PendingDealerDto>();
+                return;
+            }
+
+            Items = resp.Data.ToList();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ApproveAsync(Guid userId)
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        Error = null;
+        try
+        {
+            var resp = await Api.ApproveDealerAsync(userId);
+            if (!resp.Success)
+            {
+                Error = resp.Error?.Message ?? "Onay başarısız.";
+                return;
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}

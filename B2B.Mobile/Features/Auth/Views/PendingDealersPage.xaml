@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Auth.Views.PendingDealersPage"
+    x:Name="PendingDealersRoot"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Auth.Models"
+    Title="Onay bekleyen üyelikler">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+
+        <RefreshView
+            Grid.Row="1"
+            IsRefreshing="{Binding IsBusy}"
+            Command="{Binding RefreshCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+                    <Label
+                        Text="Mobil kayıt olan bayi hesapları. Onayladıktan sonra giriş yapabilirler."
+                        Style="{StaticResource Caption}" />
+
+                    <Border Style="{StaticResource Card}" Padding="12"
+                            IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
+                    </Border>
+
+                    <CollectionView ItemsSource="{Binding Items}">
+                        <CollectionView.EmptyView>
+                            <VerticalStackLayout Padding="24" Spacing="8">
+                                <Label Text="Onay bekleyen üyelik yok." Style="{StaticResource Title}" />
+                                <Label Text="Yeni kayıtlar burada listelenir." Style="{StaticResource Caption}" />
+                            </VerticalStackLayout>
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:PendingDealerDto">
+                                <Border Style="{StaticResource Card}" Padding="12" Margin="0,0,0,10">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
+                                        <Label Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding Email}" FontAttributes="Bold" />
+                                        <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="2">
+                                            <Label Text="Görünen ad" Style="{StaticResource Caption}" />
+                                            <Label Text="{Binding DisplayName, TargetNullValue='—'}" LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Row="2" Grid.ColumnSpan="2"
+                                               Text="{Binding CreatedAtUtc, StringFormat='Kayıt (yerel): {0:g}'}"
+                                               Style="{StaticResource Caption}" />
+                                        <Button Grid.Row="3" Grid.Column="1"
+                                                Text="Onayla"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Command="{Binding Source={x:Reference PendingDealersRoot}, Path=BindingContext.ApproveCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

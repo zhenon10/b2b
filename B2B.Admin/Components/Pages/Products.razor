@@ -1,0 +1,304 @@
+@page "/products"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Ürünler</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between">
+    <h1>Ürünler</h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" @onclick="ReconcileImagesAsync" disabled="@IsBusy">Bozuk görselleri temizle</button>
+        <button class="btn btn-primary" @onclick="@(() => Nav.NavigateTo("/products/new"))">Yeni ürün</button>
+    </div>
+</div>
+
+<div class="card my-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label">Ara</label>
+                <input class="form-control" placeholder="Ürün adı veya SKU" @bind="Query" @bind:event="oninput" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Durum</label>
+                <select class="form-select" @bind="ActiveFilter">
+                    <option value="">Tümü</option>
+                    <option value="true">Aktif</option>
+                    <option value="false">Pasif</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label">Kategori</label>
+                <select class="form-select" @bind="CategoryFilterKey">
+                    <option value="">Tümü</option>
+                    <option value="__uncat">Kategorisiz</option>
+                    @foreach (var c in CategoryOptions)
+                    {
+                        <option value="@c.CategoryId.ToString()">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Stok</label>
+                <select class="form-select" @bind="OutOfStockOnly">
+                    <option value="false">Hepsi</option>
+                    <option value="true">Sadece stokta yok</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2">
+                <button class="btn btn-outline-secondary w-100" @onclick="ResetFilters" disabled="@IsBusy">Sıfırla</button>
+                <button class="btn btn-primary w-100" @onclick="LoadAsync" disabled="@IsBusy">Uygula</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="alert alert-danger">@Error</div>
+}
+
+@if (IsBusy)
+{
+    <p>Yükleniyor...</p>
+}
+else if (Items.Count == 0)
+{
+    <p class="text-muted">Ürün bulunamadı.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+            <tr>
+                <th style="width: 76px;"></th>
+                <th>Ad</th>
+                <th>Kategori</th>
+                <th>SKU</th>
+                <th>Bayi</th>
+                <th>Tavsiye</th>
+                <th>Para birimi</th>
+                <th>Stok</th>
+                <th>Aktif</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Items)
+            {
+                <tr>
+                    <td>
+                        @if (!string.IsNullOrWhiteSpace(p.PrimaryImageUrl))
+                        {
+                            <img src="@p.PrimaryImageUrl"
+                                 alt="@p.Name"
+                                 style="width:56px;height:56px;object-fit:cover;border-radius:10px;background:#f1f3f5;" />
+                        }
+                    </td>
+                    <td>@p.Name</td>
+                    <td>@(string.IsNullOrWhiteSpace(p.CategoryName) ? "—" : p.CategoryName)</td>
+                    <td><code>@p.Sku</code></td>
+                    <td>@p.DealerPrice</td>
+                    <td>@p.MsrpPrice</td>
+                    <td>@p.CurrencyCode</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <input class="form-control form-control-sm" style="max-width:90px;"
+                                   value="@p.StockQuantity"
+                                   @onchange="async e => await UpdateStockAsync(p, e.Value)" />
+                            <button class="btn btn-sm btn-outline-secondary" title="0 yap" @onclick="async () => await SetStockAsync(p, 0)">0</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" checked="@p.IsActive"
+                                   @onchange="async e => await UpdateActiveAsync(p, e.Value)" />
+                        </div>
+                    </td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => Nav.NavigateTo($"/products/{p.ProductId}"))">
+                            Düzenle
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool IsBusy { get; set; } = true;
+    private string? Error { get; set; }
+    private List<B2BApiClient.ProductListItem> Items { get; set; } = new();
+    private List<B2BApiClient.CategoryListItem> CategoryOptions { get; set; } = new();
+
+    private string? Query { get; set; }
+    private string? ActiveFilter { get; set; } // "", "true", "false"
+    private bool OutOfStockOnly { get; set; }
+    private string? CategoryFilterKey { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoryOptionsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCategoryOptionsAsync()
+    {
+        var resp = await Api.GetCategoriesAsync(includeInactive: false);
+        CategoryOptions = resp is { Success: true, Data: not null }
+            ? resp.Data.OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToList()
+            : new();
+    }
+
+    private async Task ReconcileImagesAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            // First run as dry-run so we can show counts; then delete if there is anything.
+            var preview = await Api.ReconcileProductImagesAsync(dryRun: true);
+            if (!preview.Success || preview.Data is null)
+            {
+                Error = preview.Error?.Message ?? "Bozuk görseller kontrol edilemedi.";
+                return;
+            }
+
+            if (preview.Data.BrokenCount == 0)
+            {
+                Error = "Bozuk görsel bulunamadı.";
+                return;
+            }
+
+            var apply = await Api.ReconcileProductImagesAsync(dryRun: false);
+            if (!apply.Success || apply.Data is null)
+            {
+                Error = apply.Error?.Message ?? "Bozuk görseller temizlenemedi.";
+                return;
+            }
+
+            // Reload list so thumbnails update.
+            await LoadAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            bool? isActive = ActiveFilter switch
+            {
+                "true" => true,
+                "false" => false,
+                _ => null
+            };
+
+            var maxStock = OutOfStockOnly ? 0 : (int?)null;
+
+            Guid? categoryId = null;
+            bool? uncategorized = null;
+            if (CategoryFilterKey == "__uncat")
+                uncategorized = true;
+            else if (!string.IsNullOrWhiteSpace(CategoryFilterKey) && Guid.TryParse(CategoryFilterKey, out var cid))
+                categoryId = cid;
+
+            var resp = await Api.GetProductsAsync(
+                page: 1,
+                pageSize: 200,
+                q: Query,
+                isActive: isActive,
+                minStock: null,
+                maxStock: maxStock,
+                categoryId: categoryId,
+                uncategorized: uncategorized);
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Ürünler yüklenemedi. Lütfen giriş yapın.";
+                Items = new();
+                return;
+            }
+
+            Items = resp.Data.Items.ToList();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ResetFilters()
+    {
+        Query = null;
+        ActiveFilter = null;
+        OutOfStockOnly = false;
+        CategoryFilterKey = null;
+        _ = LoadAsync();
+    }
+
+    private async Task UpdateStockAsync(B2BApiClient.ProductListItem item, object? raw)
+    {
+        if (raw is null) return;
+        if (!int.TryParse(raw.ToString(), out var stock) || stock < 0)
+        {
+            Error = "Stok, 0 veya daha büyük bir tam sayı olmalıdır.";
+            return;
+        }
+
+        await SetStockAsync(item, stock);
+    }
+
+    private async Task SetStockAsync(B2BApiClient.ProductListItem item, int stock)
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.UpdateProductStockAsync(item.ProductId, stock);
+            if (!resp.Success)
+            {
+                Error = resp.Error?.Message ?? "Stok güncellenemedi.";
+                return;
+            }
+
+            Items = Items.Select(p => p.ProductId == item.ProductId ? p with { StockQuantity = stock } : p).ToList();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task UpdateActiveAsync(B2BApiClient.ProductListItem item, object? raw)
+    {
+        var isActive = raw is bool b && b;
+
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.UpdateProductActiveAsync(item.ProductId, isActive);
+            if (!resp.Success)
+            {
+                Error = resp.Error?.Message ?? "Aktif/pasif durumu güncellenemedi.";
+                return;
+            }
+
+            Items = Items.Select(p => p.ProductId == item.ProductId ? p with { IsActive = isActive } : p).ToList();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}
+

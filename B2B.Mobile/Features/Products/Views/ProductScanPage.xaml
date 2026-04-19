@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Products.Views.ProductScanPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+    Title="Tara">
+
+    <Grid>
+        <zxing:CameraBarcodeReaderView
+            x:Name="Camera"
+            BarcodesDetected="OnBarcodesDetected"
+            HorizontalOptions="Fill"
+            VerticalOptions="Fill" />
+
+        <Border
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            WidthRequest="300"
+            HeightRequest="140"
+            Stroke="White"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 12"
+            BackgroundColor="Transparent"
+            Opacity="0.85">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnGuideTapped" />
+            </Border.GestureRecognizers>
+        </Border>
+
+        <Border
+            VerticalOptions="End"
+            HorizontalOptions="Fill"
+            StrokeThickness="0"
+            BackgroundColor="#AA000000"
+            Padding="12">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                <Label
+                    Grid.Column="0"
+                    Text="EAN barkodu çerçeveye hizalayın; net değilse çerçeveye dokunup odaklayın. Feneri açabilirsiniz."
+                    TextColor="White"
+                    VerticalOptions="Center"
+                    LineBreakMode="WordWrap" />
+                <Button
+                    Grid.Column="1"
+                    x:Name="TorchButton"
+                    Text="Fener"
+                    Clicked="OnTorchClicked" />
+                <Button
+                    Grid.Column="2"
+                    Text="İptal"
+                    Clicked="OnCancelClicked" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,30 @@
+# Local secrets (use User Secrets, Key Vault, or host env in production)
+.env
+.env.local
+.env.*.local
+
+# Build / IDE (.NET, MAUI, VS, Rider)
+**/bin/
+**/obj/
+**/Bin/
+**/Obj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+*.rsuser
+project.lock.json
+**/packages/
+*.nuget.props
+*.nuget.targets
+publish/
+dist/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

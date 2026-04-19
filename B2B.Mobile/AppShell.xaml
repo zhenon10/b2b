@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="B2B.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:B2B.Mobile.Features.Auth.Views"
+    xmlns:products="clr-namespace:B2B.Mobile.Features.Products.Views"
+    xmlns:cart="clr-namespace:B2B.Mobile.Features.Cart.Views"
+    xmlns:orders="clr-namespace:B2B.Mobile.Features.Orders.Views"
+    xmlns:profile="clr-namespace:B2B.Mobile.Features.Auth.Views"
+    xmlns:shellCore="clr-namespace:B2B.Mobile.Core.Shell"
+    FlyoutBehavior="Disabled"
+    FlyoutBackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray950}}"
+    Title="B2B.Mobile">
+
+    <Shell.FlyoutContent>
+        <shellCore:MainFlyoutView x:Name="MainFlyoutRoot" />
+    </Shell.FlyoutContent>
+
+    <ShellContent
+        Route="login"
+        ContentTemplate="{DataTemplate auth:LoginPage}" />
+
+    <TabBar Route="main">
+        <ShellContent Title="Ürünler" Route="products">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xEA12;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <products:ProductsPage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+
+        <ShellContent Title="Sepet" Route="cart">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xE8CC;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <cart:CartPage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+
+        <ShellContent Title="Sipariş" Route="order">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xE8B0;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <orders:OrderPage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+
+        <ShellContent
+            x:Name="AdminShellTab"
+            Title="Yönetim"
+            Route="adminHub"
+            IsVisible="False">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xE8D3;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <auth:AdminHubPage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+
+        <ShellContent Title="Profil" Route="profile">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xE7FD;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <profile:ProfilePage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+    </TabBar>
+
+</Shell>

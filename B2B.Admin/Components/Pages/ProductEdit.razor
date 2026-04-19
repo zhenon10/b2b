@@ -1,0 +1,607 @@
+@page "/products/new"
+@page "/products/{ProductId:guid}"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+@inject NavigationManager Nav
+@inject IJSRuntime Js
+
+<PageTitle>Ürün</PageTitle>
+
+<h1>@(IsNew ? "Yeni ürün" : "Ürünü düzenle")</h1>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="alert alert-danger">@Error</div>
+}
+
+<EditForm Model="Model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label class="form-label">SKU</label>
+            <div class="input-group">
+                <InputText class="form-control" @bind-Value="Model.Sku" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="OpenScanner">Tara</button>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Ad</label>
+            <InputText class="form-control" @bind-Value="Model.Name" />
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label">Kategori</label>
+            <select class="form-select" @bind="Model.CategoryIdString">
+                <option value="">— Kategori yok —</option>
+                @foreach (var c in Categories)
+                {
+                    <option value="@c.CategoryId">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Açıklama</label>
+            <InputTextArea class="form-control" @bind-Value="Model.Description" rows="3" />
+        </div>
+
+        <div class="col-6 col-md-3">
+            <label class="form-label">Para birimi</label>
+            <InputText class="form-control" @bind-Value="Model.CurrencyCode" />
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">Bayi fiyatı</label>
+            <InputNumber class="form-control" @bind-Value="Model.DealerPrice" />
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">Tavsiye satış (MSRP)</label>
+            <InputNumber class="form-control" @bind-Value="Model.MsrpPrice" />
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">Stok</label>
+            <InputNumber class="form-control" @bind-Value="Model.StockQuantity" />
+        </div>
+
+        <div class="col-12">
+            <div class="form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="Model.IsActive" />
+                <label class="form-check-label">Aktif</label>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <h3 class="m-0">Görseller</h3>
+                <button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddImageRow">Görsel ekle</button>
+            </div>
+            <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th style="width: 34px;"></th>
+                        <th style="width: 64px;"></th>
+                        <th style="width: 56px;">Kapak</th>
+                        <th>Url</th>
+                        <th style="width: 90px;">Sıra</th>
+                        <th style="width: 80px;"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @for (var i = 0; i < Model.Images.Count; i++)
+                    {
+                        var row = Model.Images[i];
+                        <tr @key="row"
+                            draggable="true"
+                            @ondragstart="@(() => OnImageDragStart(i))"
+                            @ondragover:preventDefault="true"
+                            @ondrop="@(() => OnImageDrop(i))">
+                            <td class="text-muted" title="Sıralamak için sürükleyin" style="cursor:grab;">
+                                <span aria-hidden="true">≡</span>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(row.Url))
+                                {
+                                    <img src="@row.Url"
+                                         alt="preview"
+                                         style="width:44px;height:44px;object-fit:cover;border-radius:10px;background:#f1f3f5;" />
+                                }
+                            </td>
+                            <td>
+                                <input type="radio" name="primaryImg" checked="@row.IsPrimary" @onchange="@(() => SetPrimaryImage(i))" />
+                            </td>
+                            <td>
+                                <InputText class="form-control form-control-sm" @bind-Value="row.Url" placeholder="https://..." />
+                                @if (!string.IsNullOrWhiteSpace(row.Url) && !IsLikelyHttpUrl(row.Url))
+                                {
+                                    <div class="text-danger small mt-1">URL <code>http://</code> veya <code>https://</code> ile başlamalı</div>
+                                }
+                            </td>
+                            <td>
+                                <InputNumber class="form-control form-control-sm" @bind-Value="row.SortOrder" />
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(() => RemoveImageRow(i))">Kaldır</button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="text-muted small">İpucu: Sıralamak için satırları sürükleyin. Kaydederken sıra değerleri otomatik düzenlenir.</div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <h3 class="m-0">Özellikler</h3>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="ToggleSpecBulk">Toplu yapıştır</button>
+                    <button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddSpecRow">Özellik ekle</button>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="@(() => AddSpecTemplate("Color"))">Color</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="@(() => AddSpecTemplate("Compatible Models"))">Uyumlu Modeller</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="@(() => AddSpecTemplate("Material"))">Material</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="@(() => AddSpecTemplate("Warranty"))">Warranty</button>
+            </div>
+
+            @if (SpecBulkOpen)
+            {
+                <div class="card mt-2">
+                    <div class="card-body">
+                        <label class="form-label">Özellikleri yapıştırın (her satır bir özellik)</label>
+                        <textarea class="form-control" rows="5" @bind="SpecBulkText" placeholder="Renk: Siyah&#10;Uyumlu Modeller = iPhone 15&#10;Garanti: 12 ay"></textarea>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-primary" type="button" @onclick="ImportSpecBulk">İçe aktar</button>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="ToggleSpecBulk">Kapat</button>
+                        </div>
+                        <div class="text-muted small mt-2">Desteklenen ayraçlar: <code>:</code> veya <code>=</code>. Boş satırlar yok sayılır.</div>
+                    </div>
+                </div>
+            }
+
+            <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th style="width: 34px;"></th>
+                        <th style="width: 180px;">Anahtar</th>
+                        <th>Değer</th>
+                        <th style="width: 90px;">Sıra</th>
+                        <th style="width: 80px;"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @for (var i = 0; i < Model.Specs.Count; i++)
+                    {
+                        var row = Model.Specs[i];
+                        <tr @key="row"
+                            draggable="true"
+                            @ondragstart="@(() => OnSpecDragStart(i))"
+                            @ondragover:preventDefault="true"
+                            @ondrop="@(() => OnSpecDrop(i))">
+                            <td class="text-muted" title="Sıralamak için sürükleyin" style="cursor:grab;">
+                                <span aria-hidden="true">≡</span>
+                            </td>
+                            <td>
+                                <InputText class="form-control form-control-sm" @bind-Value="row.Key" placeholder="Renk" />
+                            </td>
+                            <td>
+                                <InputText class="form-control form-control-sm" @bind-Value="row.Value" placeholder="Siyah" />
+                            </td>
+                            <td>
+                                <InputNumber class="form-control form-control-sm" @bind-Value="row.SortOrder" />
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="@(() => RemoveSpecRow(i))">Kaldır</button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="text-muted small">İpucu: Sıralamak için satırları sürükleyin. Kaydederken sıra değerleri otomatik düzenlenir.</div>
+            </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary" type="submit" disabled="@IsBusy">Kaydet</button>
+            <button class="btn btn-outline-secondary" type="button" @onclick="@(() => Nav.NavigateTo("/products"))">Geri</button>
+        </div>
+    </div>
+</EditForm>
+
+@if (ScannerOpen)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">QR / Barkod Tara</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseScanner"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="ratio ratio-16x9 bg-dark rounded">
+                        <video id="b2bSkuScannerVideo" style="width:100%;height:100%;object-fit:cover;" playsinline></video>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(ScannerError))
+                    {
+                        <div class="alert alert-danger mt-3 mb-0">@ScannerError</div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small mt-2">İstenirse kamera iznini verin. İlk algılamadan sonra tarama durur.</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="CloseScanner">İptal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public Guid? ProductId { get; set; }
+
+    private bool IsNew => ProductId is null;
+    private bool IsBusy { get; set; }
+    private string? Error { get; set; }
+
+    private ProductForm Model { get; set; } = new();
+    private List<B2BApiClient.CategoryListItem> Categories { get; set; } = new();
+
+    private bool ScannerOpen { get; set; }
+    private string? ScannerError { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var catResp = await Api.GetCategoriesAsync(includeInactive: false);
+        Categories = catResp is { Success: true, Data: not null }
+            ? catResp.Data.OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToList()
+            : new();
+
+        if (IsNew)
+        {
+            Model.CategoryIdString = "";
+            return;
+        }
+
+        var resp = await Api.GetProductAsync(ProductId!.Value);
+        if (!resp.Success || resp.Data is null)
+        {
+            Error = resp.Error?.Message ?? "Ürün yüklenemedi.";
+            return;
+        }
+
+        Model = new ProductForm
+        {
+            Sku = resp.Data.Sku,
+            Name = resp.Data.Name,
+            Description = resp.Data.Description,
+            CategoryIdString = resp.Data.CategoryId?.ToString() ?? "",
+            CurrencyCode = resp.Data.CurrencyCode,
+            DealerPrice = resp.Data.DealerPrice,
+            MsrpPrice = resp.Data.MsrpPrice,
+            StockQuantity = resp.Data.StockQuantity,
+            IsActive = resp.Data.IsActive,
+            Images = resp.Data.Images
+                .OrderByDescending(i => i.IsPrimary)
+                .ThenBy(i => i.SortOrder)
+                .Select(i => new ProductImageForm { Url = i.Url, SortOrder = i.SortOrder, IsPrimary = i.IsPrimary })
+                .ToList(),
+            Specs = resp.Data.Specs
+                .OrderBy(i => i.SortOrder)
+                .Select(s => new ProductSpecForm { Key = s.Key, Value = s.Value, SortOrder = s.SortOrder })
+                .ToList()
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            NormalizeImageSortOrders();
+            NormalizeSpecSortOrders();
+            if (IsNew)
+            {
+                var resp = await Api.CreateProductAsync(new B2BApiClient.CreateProductRequest(
+                    SellerUserId: null,
+                    CategoryId: Model.ParseCategoryId(),
+                    Sku: Model.Sku ?? "",
+                    Name: Model.Name ?? "",
+                    Description: Model.Description,
+                    CurrencyCode: (Model.CurrencyCode ?? "USD").ToUpperInvariant(),
+                    DealerPrice: Model.DealerPrice,
+                    MsrpPrice: Model.MsrpPrice,
+                    StockQuantity: Model.StockQuantity,
+                    Images: Model.Images
+                        .Where(i => !string.IsNullOrWhiteSpace(i.Url))
+                        .Select(i => new B2BApiClient.ProductImage((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
+                        .ToList(),
+                    Specs: Model.Specs
+                        .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
+                        .Select(s => new B2BApiClient.ProductSpec((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
+                        .ToList(),
+                    IsActive: Model.IsActive
+                ));
+
+                if (!resp.Success || resp.Data is null)
+                {
+                    Error = resp.Error?.Message ?? "Kayıt oluşturulamadı.";
+                    return;
+                }
+
+                Nav.NavigateTo("/products");
+                return;
+            }
+            else
+            {
+                var resp = await Api.UpdateProductAsync(ProductId!.Value, new B2BApiClient.UpdateProductRequest(
+                    Sku: Model.Sku ?? "",
+                    Name: Model.Name ?? "",
+                    Description: Model.Description,
+                    CategoryId: Model.ParseCategoryId(),
+                    CurrencyCode: (Model.CurrencyCode ?? "USD").ToUpperInvariant(),
+                    DealerPrice: Model.DealerPrice,
+                    MsrpPrice: Model.MsrpPrice,
+                    StockQuantity: Model.StockQuantity,
+                    Images: Model.Images
+                        .Where(i => !string.IsNullOrWhiteSpace(i.Url))
+                        .Select(i => new B2BApiClient.ProductImage((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
+                        .ToList(),
+                    Specs: Model.Specs
+                        .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
+                        .Select(s => new B2BApiClient.ProductSpec((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
+                        .ToList(),
+                    IsActive: Model.IsActive
+                ));
+
+                if (!resp.Success || resp.Data is null)
+                {
+                    Error = resp.Error?.Message ?? "Güncelleme başarısız.";
+                    return;
+                }
+
+                Nav.NavigateTo("/products");
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private sealed class ProductForm
+    {
+        public string? Sku { get; set; }
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+        public string? CategoryIdString { get; set; }
+
+        public Guid? ParseCategoryId() =>
+            string.IsNullOrWhiteSpace(CategoryIdString)
+                ? null
+                : Guid.TryParse(CategoryIdString, out var id)
+                    ? id
+                    : null;
+
+        public string? CurrencyCode { get; set; } = "USD";
+        public decimal DealerPrice { get; set; }
+        public decimal MsrpPrice { get; set; }
+        public int StockQuantity { get; set; }
+        public bool IsActive { get; set; } = true;
+
+        public List<ProductImageForm> Images { get; set; } = new();
+        public List<ProductSpecForm> Specs { get; set; } = new();
+    }
+
+    private sealed class ProductImageForm
+    {
+        public string? Url { get; set; }
+        public int SortOrder { get; set; }
+        public bool IsPrimary { get; set; }
+    }
+
+    private sealed class ProductSpecForm
+    {
+        public string? Key { get; set; }
+        public string? Value { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    private void AddImageRow()
+    {
+        Model.Images.Add(new ProductImageForm
+        {
+            Url = null,
+            SortOrder = Model.Images.Count,
+            IsPrimary = Model.Images.Count == 0
+        });
+    }
+
+    private void RemoveImageRow(int index)
+    {
+        if (index < 0 || index >= Model.Images.Count) return;
+        Model.Images.RemoveAt(index);
+        if (Model.Images.Count > 0 && Model.Images.All(i => !i.IsPrimary))
+            Model.Images[0].IsPrimary = true;
+        NormalizeImageSortOrders();
+    }
+
+    private void SetPrimaryImage(int index)
+    {
+        for (var i = 0; i < Model.Images.Count; i++)
+            Model.Images[i].IsPrimary = i == index;
+    }
+
+    private int? _dragImageIndex;
+
+    private void OnImageDragStart(int index) => _dragImageIndex = index;
+
+    private void OnImageDrop(int targetIndex)
+    {
+        if (_dragImageIndex is null) return;
+        var from = _dragImageIndex.Value;
+        _dragImageIndex = null;
+
+        if (from == targetIndex) return;
+        if (from < 0 || from >= Model.Images.Count) return;
+        if (targetIndex < 0 || targetIndex >= Model.Images.Count) return;
+
+        var item = Model.Images[from];
+        Model.Images.RemoveAt(from);
+        if (targetIndex > from) targetIndex--;
+        Model.Images.Insert(targetIndex, item);
+        NormalizeImageSortOrders();
+    }
+
+    private void NormalizeImageSortOrders()
+    {
+        for (var i = 0; i < Model.Images.Count; i++)
+            Model.Images[i].SortOrder = i;
+    }
+
+    private void AddSpecRow()
+    {
+        Model.Specs.Add(new ProductSpecForm
+        {
+            Key = null,
+            Value = null,
+            SortOrder = Model.Specs.Count
+        });
+    }
+
+    private void RemoveSpecRow(int index)
+    {
+        if (index < 0 || index >= Model.Specs.Count) return;
+        Model.Specs.RemoveAt(index);
+        NormalizeSpecSortOrders();
+    }
+
+    private int? _dragSpecIndex;
+    private bool SpecBulkOpen { get; set; }
+    private string? SpecBulkText { get; set; }
+
+    private void OnSpecDragStart(int index) => _dragSpecIndex = index;
+
+    private void OnSpecDrop(int targetIndex)
+    {
+        if (_dragSpecIndex is null) return;
+        var from = _dragSpecIndex.Value;
+        _dragSpecIndex = null;
+
+        if (from == targetIndex) return;
+        if (from < 0 || from >= Model.Specs.Count) return;
+        if (targetIndex < 0 || targetIndex >= Model.Specs.Count) return;
+
+        var item = Model.Specs[from];
+        Model.Specs.RemoveAt(from);
+        if (targetIndex > from) targetIndex--;
+        Model.Specs.Insert(targetIndex, item);
+        NormalizeSpecSortOrders();
+    }
+
+    private void NormalizeSpecSortOrders()
+    {
+        for (var i = 0; i < Model.Specs.Count; i++)
+            Model.Specs[i].SortOrder = i;
+    }
+
+    private void ToggleSpecBulk()
+    {
+        SpecBulkOpen = !SpecBulkOpen;
+        if (!SpecBulkOpen) SpecBulkText = null;
+    }
+
+    private void ImportSpecBulk()
+    {
+        var text = SpecBulkText ?? "";
+        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var idx = line.IndexOf(':');
+            if (idx < 0) idx = line.IndexOf('=');
+            if (idx <= 0 || idx >= line.Length - 1) continue;
+
+            var key = line.Substring(0, idx).Trim();
+            var val = line.Substring(idx + 1).Trim();
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(val)) continue;
+
+            Model.Specs.Add(new ProductSpecForm
+            {
+                Key = key,
+                Value = val,
+                SortOrder = Model.Specs.Count
+            });
+        }
+
+        NormalizeSpecSortOrders();
+        SpecBulkText = null;
+        SpecBulkOpen = false;
+    }
+
+    private static bool IsLikelyHttpUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return true;
+        url = url.Trim();
+        return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void AddSpecTemplate(string key)
+    {
+        Model.Specs.Add(new ProductSpecForm
+        {
+            Key = key,
+            Value = null,
+            SortOrder = Model.Specs.Count
+        });
+        NormalizeSpecSortOrders();
+    }
+
+    private async Task OpenScanner()
+    {
+        ScannerError = null;
+        ScannerOpen = true;
+        StateHasChanged();
+
+        // Let the modal render before attaching camera.
+        await Task.Yield();
+
+        try
+        {
+            var text = await Js.InvokeAsync<string>("b2bScanner.scanOnce", "b2bSkuScannerVideo");
+            if (!string.IsNullOrWhiteSpace(text))
+                Model.Sku = text.Trim();
+        }
+        catch (Exception ex)
+        {
+            ScannerError = ex.Message;
+        }
+        finally
+        {
+            ScannerOpen = false;
+        }
+    }
+
+    private async Task CloseScanner()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("b2bScanner.stop", "b2bSkuScannerVideo");
+        }
+        catch
+        {
+            // ignore
+        }
+        ScannerOpen = false;
+    }
+}
+

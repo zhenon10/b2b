@@ -1,0 +1,312 @@
+@page "/orders"
+@using B2B.Admin.Services
+@inject B2BApiClient Api
+
+<PageTitle>Siparişler</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <h1 class="mb-0">Gelen siparişler</h1>
+    <p class="text-muted mb-0 small">Bayilerin verdiği siparişleri görüntüleyin ve durum güncelleyin.</p>
+</div>
+
+<div class="card my-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label">Durum filtresi</label>
+                <select class="form-select" @bind="StatusFilter">
+                    <option value="">Tümü</option>
+                    <option value="0">Taslak</option>
+                    <option value="1">Verildi</option>
+                    <option value="2">Ödendi</option>
+                    <option value="3">Kargoda</option>
+                    <option value="4">İptal</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <button class="btn btn-primary" @onclick="LoadListAsync" disabled="@IsBusy">Listele</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="alert alert-danger">@Error</div>
+}
+
+@if (IsBusy && ListItems.Count == 0)
+{
+    <p>Yükleniyor…</p>
+}
+else if (ListItems.Count == 0)
+{
+    <p class="text-muted">Kayıt yok.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+            <tr>
+                <th>No</th>
+                <th>Tarih (UTC)</th>
+                <th>Bayi (alıcı)</th>
+                <th>Satıcı</th>
+                <th>Tutar</th>
+                <th>Durum</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in ListItems)
+            {
+                <tr class="@(SelectedOrderId == row.OrderId ? "table-active" : "")">
+                    <td>@row.OrderNumber</td>
+                    <td>@row.CreatedAtUtc.ToString("u")</td>
+                    <td>
+                        <div>@row.BuyerEmail</div>
+                        @if (!string.IsNullOrWhiteSpace(row.BuyerDisplayName))
+                        {
+                            <small class="text-muted">@row.BuyerDisplayName</small>
+                        }
+                    </td>
+                    <td>@(row.SellerDisplayName ?? row.SellerUserId.ToString())</td>
+                    <td>@row.GrandTotal.ToString("0.##") @row.CurrencyCode</td>
+                    <td>@StatusLabel(row.Status)</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenDetailAsync(row.OrderId)" disabled="@IsBusy">Detay</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center gap-3 my-3">
+        <button class="btn btn-outline-secondary btn-sm" disabled="@(Page <= 1 || IsBusy)" @onclick="PrevPage">Önceki</button>
+        <span class="small text-muted">Sayfa @Page / @TotalPages (@Total kayıt)</span>
+        <button class="btn btn-outline-secondary btn-sm" disabled="@(Page >= TotalPages || IsBusy)" @onclick="NextPage">Sonraki</button>
+    </div>
+}
+
+@if (Detail is not null)
+{
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Sipariş #@Detail.OrderNumber</strong>
+            <button type="button" class="btn-close" aria-label="Kapat" @onclick="CloseDetail"></button>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="small text-muted">Bayi</div>
+                    <div>@Detail.BuyerEmail</div>
+                    @if (!string.IsNullOrWhiteSpace(Detail.BuyerDisplayName))
+                    {
+                        <div class="small">@Detail.BuyerDisplayName</div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <div class="small text-muted">Satıcı</div>
+                    <div>@(Detail.SellerDisplayName ?? Detail.SellerUserId.ToString())</div>
+                </div>
+                <div class="col-md-4 mt-2">
+                    <div class="small text-muted">Durum</div>
+                    <div>@StatusLabel(Detail.Status)</div>
+                </div>
+                <div class="col-md-4 mt-2">
+                    <div class="small text-muted">Ara toplam</div>
+                    <div>@Detail.Subtotal.ToString("0.##") @Detail.CurrencyCode</div>
+                </div>
+                <div class="col-md-4 mt-2">
+                    <div class="small text-muted">Genel toplam</div>
+                    <div>@Detail.GrandTotal.ToString("0.##") @Detail.CurrencyCode</div>
+                </div>
+            </div>
+
+            <h6>Kalemler</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>SKU</th>
+                        <th>Ürün</th>
+                        <th class="text-end">Birim</th>
+                        <th class="text-end">Adet</th>
+                        <th class="text-end">Satır</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var line in Detail.Items)
+                    {
+                        <tr>
+                            <td>@line.LineNumber</td>
+                            <td>@line.ProductSku</td>
+                            <td>@line.ProductName</td>
+                            <td class="text-end">@line.UnitPrice.ToString("0.##")</td>
+                            <td class="text-end">@line.Quantity</td>
+                            <td class="text-end">@((line.UnitPrice * line.Quantity).ToString("0.##"))</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Detail.Status != 3 && Detail.Status != 4)
+            {
+                <hr />
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Yeni durum</label>
+                        <select class="form-select" @bind="DetailNewStatus">
+                            <option value="@Detail.Status">@StatusLabel(Detail.Status) (değiştirme)</option>
+                            @foreach (var opt in AllowedNextStatuses(Detail.Status))
+                            {
+                                <option value="@opt.Value">@opt.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button class="btn btn-primary" @onclick="SaveStatusAsync" disabled="@(IsBusy || DetailNewStatus == Detail.Status)">Durumu kaydet</button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(DetailError))
+                {
+                    <div class="alert alert-warning mt-2 mb-0">@DetailError</div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const int PageSize = 20;
+    private List<B2BApiClient.AdminOrderListItem> ListItems { get; set; } = new();
+    private int Page = 1;
+    private long Total;
+    private int TotalPages => Total <= 0 ? 1 : (int)Math.Ceiling(Total / (double)PageSize);
+    private string StatusFilter { get; set; } = "";
+    private bool IsBusy;
+    private string? Error;
+    private Guid? SelectedOrderId;
+    private B2BApiClient.AdminOrderDetail? Detail;
+    private int DetailNewStatus;
+    private string? DetailError;
+
+    protected override async Task OnInitializedAsync() => await LoadListAsync();
+
+    private async Task LoadListAsync()
+    {
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            int? st = string.IsNullOrWhiteSpace(StatusFilter) ? null : int.Parse(StatusFilter);
+            var resp = await Api.GetAdminOrdersAsync(Page, PageSize, st);
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Liste alınamadı. Yönetici olarak giriş yaptığınızdan emin olun.";
+                ListItems = new List<B2BApiClient.AdminOrderListItem>();
+                Total = 0;
+                return;
+            }
+
+            ListItems = resp.Data.Items.ToList();
+            Total = resp.Data.Meta.Total;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task OpenDetailAsync(Guid orderId)
+    {
+        DetailError = null;
+        Error = null;
+        SelectedOrderId = orderId;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.GetAdminOrderAsync(orderId);
+            if (!resp.Success || resp.Data is null)
+            {
+                Error = resp.Error?.Message ?? "Detay yüklenemedi.";
+                Detail = null;
+                SelectedOrderId = null;
+                return;
+            }
+
+            Detail = resp.Data;
+            DetailNewStatus = Detail.Status;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void CloseDetail()
+    {
+        Detail = null;
+        SelectedOrderId = null;
+        DetailError = null;
+    }
+
+    private async Task SaveStatusAsync()
+    {
+        if (Detail is null || DetailNewStatus == Detail.Status) return;
+        DetailError = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await Api.UpdateOrderStatusAsync(Detail.OrderId, DetailNewStatus);
+            if (!resp.Success)
+            {
+                DetailError = resp.Error?.Message ?? "Güncelleme başarısız.";
+                return;
+            }
+
+            await LoadListAsync();
+            await OpenDetailAsync(Detail.OrderId);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task PrevPage()
+    {
+        if (Page <= 1) return;
+        Page--;
+        await LoadListAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (Page >= TotalPages) return;
+        Page++;
+        await LoadListAsync();
+    }
+
+    private static string StatusLabel(int s) => s switch
+    {
+        0 => "Taslak",
+        1 => "Verildi",
+        2 => "Ödendi",
+        3 => "Kargoda",
+        4 => "İptal",
+        _ => s.ToString()
+    };
+
+    private static (int Value, string Label)[] AllowedNextStatuses(int current) => current switch
+    {
+        0 => new[] { (1, "Verildi"), (4, "İptal") },
+        1 => new[] { (2, "Ödendi"), (4, "İptal") },
+        2 => new[] { (3, "Kargoda"), (4, "İptal") },
+        _ => Array.Empty<(int, string)>()
+    };
+}

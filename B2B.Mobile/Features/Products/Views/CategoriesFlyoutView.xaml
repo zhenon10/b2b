@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="B2B.Mobile.Features.Products.Views.CategoriesFlyoutView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:B2B.Mobile.Features.Products.ViewModels"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Products.Models"
+    xmlns:views="clr-namespace:B2B.Mobile.Features.Products.Views"
+    x:Name="FlyoutRoot"
+    x:DataType="vm:CategoriesFlyoutViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12,16" RowSpacing="10">
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Label Text="Kategoriler" Style="{StaticResource Title2}" />
+            <Label Text="Listeyi daraltmak için bir kategori seçin."
+                   Style="{StaticResource Caption}" />
+            <Button Text="Kategorisiz ürünler"
+                    Style="{StaticResource SecondaryButton}"
+                    Command="{Binding SelectUncategorizedCommand}" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Categories}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="Kategori yok"
+                       Style="{StaticResource Caption}"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       Margin="0,24,0,0" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:CategoryListItem">
+                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,8">
+                        <Button Text="{Binding Name}"
+                                FontAttributes="Bold"
+                                BackgroundColor="Transparent"
+                                TextColor="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource White}}"
+                                BorderWidth="0"
+                                CornerRadius="0"
+                                Padding="12"
+                                HorizontalOptions="Fill"
+                                Command="{Binding BindingContext.SelectCategoryCommand, Source={RelativeSource AncestorType={x:Type views:CategoriesFlyoutView}}}"
+                                CommandParameter="{Binding .}" />
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Label Grid.Row="2"
+               Text="{Binding Error}"
+               TextColor="{StaticResource Error}"
+               IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+    </Grid>
+</ContentView>

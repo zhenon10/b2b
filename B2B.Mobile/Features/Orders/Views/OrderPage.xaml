@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Orders.Views.OrderPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:models="clr-namespace:B2B.Mobile.Features.Orders.Models"
+    x:Name="OrderPageRoot"
+    Title="Sipariş">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+
+        <!-- Bayi: sepet + sipariş geçmişi -->
+        <Grid x:Name="DealerSection" Grid.Row="1" RowDefinitions="Auto,*" IsVisible="True">
+            <HorizontalStackLayout Grid.Row="0" Padding="16,12,16,8" Spacing="10">
+                <Button Text="Sepetim"
+                        HorizontalOptions="FillAndExpand"
+                        Command="{Binding ShowCartPanelCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsCartPanel}" Value="False">
+                            <Setter Property="Style" Value="{StaticResource SecondaryButton}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="Siparişlerim"
+                        HorizontalOptions="FillAndExpand"
+                        Command="{Binding ShowHistoryPanelCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsHistoryPanel}" Value="False">
+                            <Setter Property="Style" Value="{StaticResource SecondaryButton}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </HorizontalStackLayout>
+
+            <ScrollView Grid.Row="1" IsVisible="{Binding IsCartPanel}">
+                <Grid Padding="16,0,16,16" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="14">
+                    <VerticalStackLayout Grid.Row="0" Spacing="6">
+                        <Label Text="Siparişi gönder" Style="{StaticResource Title}" />
+                        <Label Text="Sepetinizi kontrol edip siparişi gönderin." Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Sipariş özeti" FontAttributes="Bold" />
+
+                            <Label Text="{Binding SellerSummary}" Style="{StaticResource Caption}" />
+
+                            <Grid ColumnDefinitions="*,Auto" RowSpacing="6">
+                                <Label Grid.Column="0" Text="Toplam" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="1" Text="{Binding TotalWithCurrency}" FontAttributes="Bold" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12"
+                            IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
+                            <Button Text="Tekrar dene"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding RetrySubmitCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="3" Style="{StaticResource Card}" Padding="12"
+                            IsVisible="{Binding Result, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                        <Label Text="{Binding Result}" TextColor="{StaticResource Success}" />
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource Card}" Padding="12">
+                        <CollectionView ItemsSource="{Binding Lines}">
+                            <CollectionView.EmptyView>
+                                <VerticalStackLayout Padding="8" Spacing="6">
+                                    <Label Text="Sepet boş." Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="2" Padding="0,6">
+                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding LineTotal, StringFormat='{0:0.##}'}" FontAttributes="Bold" />
+
+                                        <Label Grid.Row="1" Grid.Column="0" Text="{Binding Sku}" Style="{StaticResource Caption}" />
+                                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Quantity, StringFormat='x{0}'}" Style="{StaticResource Caption}" HorizontalTextAlignment="End" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Border>
+
+                    <Grid Grid.Row="5" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Text="Gönder"
+                                Command="{Binding SubmitCommand}"
+                                IsEnabled="{Binding CanSubmit}" />
+                        <Button Grid.Column="2"
+                                Text="Yeni anahtar"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ResetIdempotencyCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                    </Grid>
+                </Grid>
+            </ScrollView>
+
+            <RefreshView Grid.Row="1"
+                         IsVisible="{Binding IsHistoryPanel}"
+                         IsRefreshing="{Binding IsHistoryRefreshing}"
+                         Command="{Binding RefreshHistoryCommand}">
+                <ScrollView>
+                    <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Sipariş geçmişi" Style="{StaticResource Title}" />
+                            <Label Text="Verdiğiniz siparişlerin durumunu buradan takip edebilirsiniz."
+                                   Style="{StaticResource Caption}" />
+                        </VerticalStackLayout>
+
+                        <Border Style="{StaticResource Card}" Padding="12"
+                                IsVisible="{Binding HistoryError, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="{Binding HistoryError}" TextColor="{StaticResource Error}" />
+                                <Button Text="Tekrar dene"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding RetryHistoryCommand}"
+                                        IsEnabled="{Binding IsHistoryBusy, Converter={StaticResource InverseBoolConverter}}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding ShowHistoryDetailLoadFailure}">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="{Binding HistoryDetailError}" TextColor="{StaticResource Error}" />
+                                <ActivityIndicator IsRunning="{Binding IsHistoryDetailBusy}"
+                                                   IsVisible="{Binding IsHistoryDetailBusy}" />
+                                <Button Text="Tekrar dene"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding RetryHistoryDetailCommand}"
+                                        IsEnabled="{Binding IsHistoryDetailBusy, Converter={StaticResource InverseBoolConverter}}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <ActivityIndicator IsRunning="{Binding IsHistoryBusy}" IsVisible="{Binding IsHistoryBusy}" />
+
+                        <CollectionView ItemsSource="{Binding HistoryItems}" SelectionMode="None">
+                            <CollectionView.EmptyView>
+                                <Label Text="Henüz sipariş yok." Style="{StaticResource Caption}" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:DealerOrderListItem">
+                                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,8">
+                                        <Grid Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                            <Label Grid.Row="0" Grid.Column="0" FontAttributes="Bold" Text="{Binding OrderNumber, StringFormat='Sipariş #{0}'}" />
+                                            <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="4" VerticalOptions="Start">
+                                                <Label FontAttributes="Bold" Text="{Binding GrandTotal, StringFormat='{0:0.##}'}" />
+                                                <Label FontAttributes="Bold" Text="{Binding CurrencyCode}" />
+                                            </HorizontalStackLayout>
+                                            <Label Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Caption}"
+                                                   Text="{Binding Status, Converter={StaticResource OrderStatusLabelConverter}, StringFormat='Durum: {0}'}" />
+                                            <Label Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource Caption}"
+                                                   Text="{Binding CreatedAtUtc, StringFormat='{0:dd.MM.yyyy HH:mm}'}" />
+                                            <Label Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Caption}" LineBreakMode="TailTruncation"
+                                                   Text="{Binding SellerDisplayName, StringFormat='Satıcı: {0}', TargetNullValue='Satıcı: —'}" />
+                                            <Button Grid.Row="4" Grid.ColumnSpan="2"
+                                                    Margin="0,10,0,0"
+                                                    Text="Detay"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding BindingContext.SelectHistoryOrderCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                    CommandParameter="{Binding .}"
+                                                    IsEnabled="{Binding BindingContext.IsHistoryDetailBusy, Source={RelativeSource AncestorType={x:Type ContentPage}}, Converter={StaticResource InverseBoolConverter}}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
+                            <Button Text="Önceki"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding HistoryPrevPageCommand}"
+                                    IsEnabled="{Binding CanHistoryPrev}" />
+                            <Label Grid.Column="1"
+                                   VerticalOptions="Center"
+                                   Style="{StaticResource Caption}"
+                                   Text="{Binding HistoryPageSummary}" />
+                            <Button Grid.Column="2"
+                                    Text="Sonraki"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding HistoryNextPageCommand}"
+                                    IsEnabled="{Binding CanHistoryNext}" />
+                        </Grid>
+
+                        <Border IsVisible="{Binding HasHistoryDetail}" Style="{StaticResource Card}" Padding="12">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label FontAttributes="Bold"
+                                           Text="{Binding SelectedHistoryDetail.OrderNumber, StringFormat='Sipariş #{0}', TargetNullValue=''}" />
+                                    <Button Grid.Column="1"
+                                            Text="Kapat"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CloseHistoryDetailCommand}" />
+                                </Grid>
+                                <Label FontAttributes="Bold" Text="{Binding HistoryDetailStatusLine}" />
+                                <Label Style="{StaticResource Caption}"
+                                       Text="{Binding SelectedHistoryDetail.SellerDisplayName, StringFormat='Satıcı: {0}', TargetNullValue='Satıcı: —'}" />
+                                <Label FontAttributes="Bold" Text="{Binding HistoryDetailTotalLine}" />
+                                <Label Style="{StaticResource Caption}"
+                                       Text="{Binding SelectedHistoryDetail.CreatedAtUtc, StringFormat='Oluşturulma: {0:dd.MM.yyyy HH:mm}', TargetNullValue=''}" />
+
+                                <CollectionView ItemsSource="{Binding SelectedHistoryDetail.Items}" HeightRequest="220">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:DealerOrderLine">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,4">
+                                                <Label Grid.Column="0" LineBreakMode="TailTruncation" Text="{Binding ProductName}" />
+                                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding Quantity, StringFormat='x{0}'}" />
+                                                <Label Grid.Column="2" Text="{Binding UnitPrice, StringFormat='{0:0.##}'}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                                <Label Style="{StaticResource Caption}"
+                                       Text="{Binding SelectedHistoryDetail.CurrencyCode, StringFormat='Satır birim fiyatları ({0})', TargetNullValue=''}" />
+
+                                <Label Text="{Binding HistoryDetailError}"
+                                       TextColor="{StaticResource Error}"
+                                       IsVisible="{Binding HistoryDetailError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                                <Button Text="Tekrar dene"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding RefreshSelectedHistoryDetailCommand}"
+                                        IsVisible="{Binding HistoryDetailError, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+                                        IsEnabled="{Binding IsHistoryDetailBusy, Converter={StaticResource InverseBoolConverter}}" />
+
+                                <Button Text="Siparişi iptal et"
+                                        TextColor="{StaticResource Error}"
+                                        Command="{Binding CancelSelectedOrderCommand}"
+                                        IsVisible="{Binding CanCancelSelectedOrder}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </ScrollView>
+            </RefreshView>
+        </Grid>
+    </Grid>
+</ContentPage>

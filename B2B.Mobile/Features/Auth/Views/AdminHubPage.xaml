@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Auth.Views.AdminHubPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    Title="Yönetim">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="14">
+                <Label Text="Yönetici işlemleri"
+                       Style="{StaticResource Title2}" />
+                <Label Text="Kategori, ürün, sipariş onayı ve bayi onayı işlemlerini buradan açın."
+                       Style="{StaticResource Caption}" />
+
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Button Text="Kategori yönetimi"
+                                Command="{Binding OpenCategoriesCommand}" />
+                        <Button Text="Yeni ürün"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenNewProductCommand}" />
+                        <Button Text="Sipariş onayları"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenAdminOrdersCommand}" />
+                        <Button Text="Onay bekleyen üyelikler"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenPendingDealersCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

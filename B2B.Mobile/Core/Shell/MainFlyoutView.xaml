@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="B2B.Mobile.Core.Shell.MainFlyoutView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:products="clr-namespace:B2B.Mobile.Features.Products.Views"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    x:Name="Root"
+    x:DataType="shell:MainFlyoutViewModel">
+
+    <Grid Padding="0">
+        <Grid IsVisible="{Binding IsProductsFlyout}" RowDefinitions="*,Auto">
+            <products:CategoriesFlyoutView x:Name="CategoriesPanel" Grid.Row="0" />
+            <Border Grid.Row="1"
+                    Margin="0,10,0,0"
+                    Padding="12"
+                    Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Hızlı geçiş" Style="{StaticResource Caption}" FontAttributes="Bold" />
+                    <Button Text="Sepete git"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding GoToCartCommand}" />
+                    <Button Text="Siparişe git"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding GoToOrderCommand}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Profil"
+                                Style="{StaticResource SecondaryButton}"
+                                HorizontalOptions="FillAndExpand"
+                                Command="{Binding GoToProfileCommand}" />
+                        <Button Text="Yönetim"
+                                Style="{StaticResource SecondaryButton}"
+                                HorizontalOptions="FillAndExpand"
+                                IsVisible="{Binding CanShowAdminHub}"
+                                Command="{Binding GoToAdminHubCommand}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <ScrollView IsVisible="{Binding IsCartFlyout}">
+            <VerticalStackLayout Padding="12,16" Spacing="12">
+                <Label Text="Sepet" Style="{StaticResource Title2}" />
+                <Label Text="Sepetinizdeki ürünler bu sekmede. Katalogdan ürün ekleyebilirsiniz."
+                       Style="{StaticResource Caption}" />
+                <Label Text="{Binding CartSummary}" FontAttributes="Bold" />
+                <Label Text="Hızlı geçiş" Style="{StaticResource Caption}" FontAttributes="Bold" Margin="0,4,0,0" />
+                <Button Text="Ürünlere git"
+                        Command="{Binding GoToProductsCommand}" />
+                <Button Text="Siparişe git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToOrderCommand}" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Profil"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            Command="{Binding GoToProfileCommand}" />
+                    <Button Text="Yönetim"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            IsVisible="{Binding CanShowAdminHub}"
+                            Command="{Binding GoToAdminHubCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ScrollView IsVisible="{Binding IsOrderFlyout}">
+            <VerticalStackLayout Padding="12,16" Spacing="12">
+                <Label Text="Sipariş" Style="{StaticResource Title2}" />
+                <Label Text="Sipariş oluşturma ve yönetim bu sekmede. Ürün eklemek için kataloga dönün."
+                       Style="{StaticResource Caption}" />
+                <Label Text="Hızlı geçiş" Style="{StaticResource Caption}" FontAttributes="Bold" Margin="0,4,0,0" />
+                <Button Text="Ürünlere git"
+                        Command="{Binding GoToProductsCommand}" />
+                <Button Text="Sepete git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToCartCommand}" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Profil"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            Command="{Binding GoToProfileCommand}" />
+                    <Button Text="Yönetim"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            IsVisible="{Binding CanShowAdminHub}"
+                            Command="{Binding GoToAdminHubCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ScrollView IsVisible="{Binding IsAdminHubFlyout}">
+            <VerticalStackLayout Padding="12,16" Spacing="12">
+                <Label Text="Yönetim" Style="{StaticResource Title2}" />
+                <Label Text="Kategori, ürün, sipariş ve bayi onayı bu sekmede."
+                       Style="{StaticResource Caption}" />
+                <Label Text="Hızlı geçiş" Style="{StaticResource Caption}" FontAttributes="Bold" Margin="0,4,0,0" />
+                <Button Text="Ürünlere git"
+                        Command="{Binding GoToProductsCommand}" />
+                <Button Text="Sepete git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToCartCommand}" />
+                <Button Text="Siparişe git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToOrderCommand}" />
+                <Button Text="Profil"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToProfileCommand}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ScrollView IsVisible="{Binding IsProfileFlyout}">
+            <VerticalStackLayout Padding="12,16" Spacing="12">
+                <Label Text="Profil" Style="{StaticResource Title2}" />
+                <Label Text="Hesap bilgileri ve güvenlik bu sekmede."
+                       Style="{StaticResource Caption}" />
+                <Label Text="Hızlı geçiş" Style="{StaticResource Caption}" FontAttributes="Bold" Margin="0,4,0,0" />
+                <Button Text="Ürünlere git"
+                        Command="{Binding GoToProductsCommand}" />
+                <Button Text="Sepete git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToCartCommand}" />
+                <Button Text="Siparişe git"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding GoToOrderCommand}" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Profil"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            Command="{Binding GoToProfileCommand}" />
+                    <Button Text="Yönetim"
+                            Style="{StaticResource SecondaryButton}"
+                            HorizontalOptions="FillAndExpand"
+                            IsVisible="{Binding CanShowAdminHub}"
+                            Command="{Binding GoToAdminHubCommand}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>
