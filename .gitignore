@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# API’de yerel geliştirmede oluşan yüklemeler (repoda tutulmaz)
+B2B.Api/wwwroot/uploads/
+
 # Build / IDE (.NET, MAUI, VS, Rider)
 **/bin/
 **/obj/
