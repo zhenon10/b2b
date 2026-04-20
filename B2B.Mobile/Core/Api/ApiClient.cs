@@ -508,11 +508,7 @@ public sealed class ApiClient
 
 
 
-    /// <summary>
-
-    /// Yanlış şifre / kayıt hatası gibi durumlarda 401 beklenir; oturumu düşürme ve login sayfasına zorla gitme.
-
-    /// </summary>
+    /// <summary>Yanlış şifre / kayıt hatası gibi durumlarda 401 beklenir; oturumu düşürme ve login sayfasına zorla gitme.</summary>
 
     private static bool IsUnauthorizedOnAnonymousAuthEndpoint(HttpResponseMessage resp)
 

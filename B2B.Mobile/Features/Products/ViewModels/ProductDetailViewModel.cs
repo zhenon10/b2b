@@ -150,13 +150,7 @@ public partial class ProductDetailViewModel : ObservableObject
 
     private static string FormatProductDetailError(ApiError? err)
     {
-        if (err is null) return "Ürün detayı yüklenemedi.";
-        return err.Code switch
-        {
-            "unauthorized" => "Oturum süresi dolmuş olabilir. Yeniden giriş yapın.",
-            "forbidden" => "Bu ürüne erişim yetkiniz yok.",
-            _ => err.Message
-        };
+        return UserFacingApiMessage.Message(err, "Ürün detayı yüklenemedi.");
     }
 
     [RelayCommand]

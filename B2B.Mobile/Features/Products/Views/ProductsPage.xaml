@@ -154,6 +154,11 @@
                         <VerticalStackLayout Padding="24" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
                             <Label Text="{Binding CatalogEmptyTitle}" Style="{StaticResource Title}" HorizontalTextAlignment="Center" />
                             <Label Text="{Binding CatalogEmptyHint}" Style="{StaticResource Caption}" HorizontalTextAlignment="Center" />
+                            <Button Text="Aramayı temizle"
+                                    IsVisible="{Binding Query, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+                                    SemanticProperties.Hint="Arama metnini temizler ve kataloğu yeniden yükler"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ClearQueryCommand}" />
                             <Button Text="Yenile"
                                     SemanticProperties.Hint="Kataloğu yeniden yükler"
                                     Style="{StaticResource SecondaryButton}"
@@ -225,14 +230,11 @@
                                                MaxLines="2"
                                                TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray200}}" />
 
-                                        <Label Text="{Binding Sku}"
-                                               Style="{StaticResource Caption}"
-                                               LineBreakMode="TailTruncation" />
-
-                                        <Label Text="{Binding CategoryName}"
+                                        <!-- SKU/kategori yoğunluğunu azalt: SKU yalnızca admin için (debug) gösterilir -->
+                                        <Label Text="{Binding Sku, StringFormat='SKU: {0}'}"
                                                Style="{StaticResource Caption}"
                                                LineBreakMode="TailTruncation"
-                                               IsVisible="{Binding CategoryName, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                                               IsVisible="{Binding BindingContext.CanManageProducts, Source={RelativeSource AncestorType={x:Type ContentPage}}}" />
 
                                         <HorizontalStackLayout Spacing="6">
                                             <Label Text="{Binding DealerPrice, StringFormat='{0:0.##}'}"

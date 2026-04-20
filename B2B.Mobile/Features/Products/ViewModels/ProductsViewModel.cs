@@ -109,6 +109,16 @@ public partial class ProductsViewModel : ObservableObject
         await RefreshAsync();
     }
 
+    [RelayCommand]
+    private async Task ClearQueryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Query)) return;
+        _suppressQueryRefresh = true;
+        Query = null;
+        _suppressQueryRefresh = false;
+        await RefreshAsync();
+    }
+
     private void CancelSearchDebounce()
     {
         _queryDebounceCts?.Cancel();
@@ -230,10 +240,16 @@ public partial class ProductsViewModel : ObservableObject
     private void UpdateEmptyMessagingForZeroResults()
     {
         var hasQuery = !string.IsNullOrWhiteSpace(Query);
+        var hasScan = !string.IsNullOrWhiteSpace(ScanFilterCode);
         var hasCategory = _catalogFilter.CategoryId.HasValue;
         var uncategorized = _catalogFilter.UncategorizedOnly;
 
-        if (hasQuery || hasCategory || uncategorized)
+        if (hasScan)
+        {
+            CatalogEmptyTitle = "Barkod bulunamadı";
+            CatalogEmptyHint = "Barkod filtresini temizleyip tekrar deneyin veya arama ile kontrol edin.";
+        }
+        else if (hasQuery || hasCategory || uncategorized)
         {
             CatalogEmptyTitle = "Sonuç bulunamadı";
             CatalogEmptyHint = "Arama metnini veya kategori seçimini değiştirmeyi deneyin.";
@@ -258,13 +274,7 @@ public partial class ProductsViewModel : ObservableObject
 
     private static string FormatProductListError(ApiError? err)
     {
-        if (err is null) return "Ürün listesi alınamadı.";
-        return err.Code switch
-        {
-            "unauthorized" => "Oturum süresi dolmuş olabilir. Yeniden giriş yapın.",
-            "forbidden" => "Bu listeye erişim yetkiniz yok.",
-            _ => err.Message
-        };
+        return UserFacingApiMessage.Message(err, "Ürün listesi alınamadı.");
     }
 
     [RelayCommand]

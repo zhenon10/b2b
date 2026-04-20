@@ -23,7 +23,8 @@
                             <CarouselView.ItemTemplate>
                                 <DataTemplate x:DataType="models:ProductImage">
                                     <Border StrokeShape="RoundRectangle 14"
-                                            BackgroundColor="{AppThemeBinding Light='#F1F3F5', Dark='#1F2226'}">
+                                            BackgroundColor="{AppThemeBinding Light='#F1F3F5', Dark='#1F2226'}"
+                                            HeightRequest="180">
                                         <Grid IsClippedToBounds="True">
                                             <Image Source="{Binding Url, Converter={StaticResource UrlToImageSourceConverter}}"
                                                    Aspect="AspectFill"

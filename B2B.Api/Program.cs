@@ -119,7 +119,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
 
 builder.Services.AddOptions<PublicAssetUrlOptions>()
     .BindConfiguration(PublicAssetUrlOptions.SectionName);

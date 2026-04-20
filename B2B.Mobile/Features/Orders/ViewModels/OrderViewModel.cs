@@ -501,23 +501,8 @@ public partial class OrderViewModel : ObservableObject
     {
         if (err is null) return null;
 
-        if (err.Code == "timeout")
-            return "Bağlantı zaman aşımına uğradı. Ağı kontrol edip tekrar deneyin.";
-
-        if (err.Code == "network_error")
-            return "API’ye ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.";
-
-        if (err.Code == "empty_response" || err.Code == "invalid_response")
-            return "Sunucu yanıtı alınamadı veya okunamadı. Bir süre sonra tekrar deneyin.";
-
-        if (err.Code == "server_error")
-            return "Sunucu geçici bir hata verdi. Biraz sonra tekrar deneyin.";
-
-        if (err.Code == "unauthorized")
-            return "Oturum süresi dolmuş olabilir. Çıkış yapıp yeniden giriş yapın.";
-
-        if (err.Code == "forbidden")
-            return "Bu işlem için yetkiniz yok.";
+        if (err.Code is "timeout" or "network_error" or "empty_response" or "invalid_response" or "server_error" or "unauthorized" or "forbidden")
+            return UserFacingApiMessage.Message(err, "Sipariş işlemi başarısız.");
 
         if (err.Code == "not_found")
             return "Sipariş bulunamadı veya artık erişilemiyor.";
@@ -557,6 +542,6 @@ public partial class OrderViewModel : ObservableObject
         if (err.Code == "invalid_quantity")
             return "Geçersiz adet.";
 
-        return err.Message;
+        return string.IsNullOrWhiteSpace(err.Message) ? null : err.Message;
     }
 }
