@@ -22,6 +22,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NSwag.AspNetCore;
 using Serilog;
+using Amazon.S3;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -200,6 +201,27 @@ builder.Services.AddOptions<ApiPublishingOptions>()
 
 builder.Services.AddOptions<UploadLimitsOptions>()
     .BindConfiguration(UploadLimitsOptions.SectionName);
+
+builder.Services.AddOptions<ObjectStorageOptions>()
+    .BindConfiguration(ObjectStorageOptions.SectionName);
+
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var o = sp.GetRequiredService<IOptions<ObjectStorageOptions>>().Value;
+    return S3ObjectStorage.BuildClient(o);
+});
+
+builder.Services.AddSingleton<IObjectStorage>(sp =>
+{
+    var o = sp.GetRequiredService<IOptions<ObjectStorageOptions>>().Value;
+    var provider = (o.Provider ?? "Local").Trim();
+    return provider.Equals("S3", StringComparison.OrdinalIgnoreCase)
+        ? new S3ObjectStorage(sp.GetRequiredService<IAmazonS3>(), sp.GetRequiredService<IOptions<ObjectStorageOptions>>())
+        : new LocalFileObjectStorage(
+            sp.GetRequiredService<IWebHostEnvironment>(),
+            sp.GetRequiredService<IOptions<ApiPublishingOptions>>(),
+            sp.GetRequiredService<IOptions<ObjectStorageOptions>>());
+});
 
 // Include API-layer validators (request DTOs defined in controllers)
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly, includeInternalTypes: true);

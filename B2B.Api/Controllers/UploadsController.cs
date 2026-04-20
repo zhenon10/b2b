@@ -5,7 +5,6 @@ using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -22,8 +21,7 @@ namespace B2B.Api.Controllers;
 [Route("api/v1/uploads")]
 public sealed class UploadsController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
-    private readonly IOptions<ApiPublishingOptions> _apiPublish;
+    private readonly IObjectStorage _storage;
     private readonly IOptions<UploadLimitsOptions> _limits;
     private readonly B2BDbContext _db;
     private readonly ILogger<UploadsController> _logger;
@@ -39,14 +37,12 @@ public sealed class UploadsController : ControllerBase
     };
 
     public UploadsController(
-        IWebHostEnvironment env,
-        IOptions<ApiPublishingOptions> apiPublish,
+        IObjectStorage storage,
         IOptions<UploadLimitsOptions> limits,
         B2BDbContext db,
         ILogger<UploadsController> logger)
     {
-        _env = env;
-        _apiPublish = apiPublish;
+        _storage = storage;
         _limits = limits;
         _db = db;
         _logger = logger;
@@ -110,13 +106,14 @@ public sealed class UploadsController : ControllerBase
         }
 
         string safeName;
-        string absPath;
+        string storedPath;
         var now = DateTime.UtcNow;
         var todayUtc = now.Date;
         var dailyMaxCount = Math.Max(0, _limits.Value.DailyMaxCount);
         var dailyMaxBytes = Math.Max(0, _limits.Value.DailyMaxBytes);
         var width = 0;
         var height = 0;
+        long storedBytes = 0;
 
         using (image)
         {
@@ -180,19 +177,8 @@ public sealed class UploadsController : ControllerBase
             width = image.Width;
             height = image.Height;
 
-            // Use the actual web root so static file middleware can serve the saved files.
-            // (Directory.GetCurrentDirectory() can differ depending on how the app is launched.)
-            var webRoot = _env.WebRootPath;
-            if (string.IsNullOrWhiteSpace(webRoot))
-            {
-                webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            }
-
-            var uploadsRoot = Path.Combine(webRoot, "uploads", "products");
-            Directory.CreateDirectory(uploadsRoot);
-
             safeName = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
-            absPath = Path.Combine(uploadsRoot, safeName);
+            storedPath = $"/uploads/products/{safeName}";
 
             IImageEncoder encoder = ext.ToLowerInvariant() switch
             {
@@ -213,26 +199,14 @@ public sealed class UploadsController : ControllerBase
                 _ => new WebpEncoder { Quality = 80, FileFormat = WebpFileFormatType.Lossy }
             };
 
-            await using (var fs = System.IO.File.Create(absPath))
-            {
-                await image.SaveAsync(fs, encoder, ct);
-            }
+            await using var ms = new MemoryStream(capacity: (int)Math.Min(file.Length, int.MaxValue));
+            await image.SaveAsync(ms, encoder, ct);
+            storedBytes = ms.Length;
+
+            await _storage.SaveAsync(storedPath, ms, file.ContentType ?? "application/octet-stream", ct);
         }
 
-        var origin = string.IsNullOrWhiteSpace(_apiPublish.Value.PublicBaseUrl)
-            ? $"{Request.Scheme}://{Request.Host}"
-            : _apiPublish.Value.PublicBaseUrl.Trim().TrimEnd('/');
-        var publicUrl = $"{origin}/uploads/products/{safeName}";
-
-        long storedBytes = 0;
-        try
-        {
-            storedBytes = new FileInfo(absPath).Length;
-        }
-        catch
-        {
-            // keep 0 if file stat fails
-        }
+        var publicUrl = _storage.GetPublicUrl(storedPath, Request);
 
         _db.UploadAudits.Add(new UploadAudit
         {
@@ -243,7 +217,7 @@ public sealed class UploadsController : ControllerBase
             FileSizeBytes = storedBytes == 0 ? file.Length : storedBytes,
             Width = width,
             Height = height,
-            StoredPath = $"/uploads/products/{safeName}",
+            StoredPath = storedPath,
             PublicUrl = publicUrl,
             CreatedAtUtc = now
         });
@@ -256,7 +230,7 @@ public sealed class UploadsController : ControllerBase
             storedBytes == 0 ? file.Length : storedBytes,
             width,
             height,
-            $"/uploads/products/{safeName}",
+            storedPath,
             dailyMaxCount,
             dailyMaxBytes);
 

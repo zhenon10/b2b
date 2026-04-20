@@ -1,11 +1,13 @@
 using B2B.Api.Security;
 using B2B.Contracts;
+using B2B.Api.Infrastructure;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace B2B.Api.Controllers;
 
@@ -16,11 +18,13 @@ public sealed class MaintenanceController : ControllerBase
 {
     private readonly B2BDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly IOptions<ObjectStorageOptions> _storage;
 
-    public MaintenanceController(B2BDbContext db, IWebHostEnvironment env)
+    public MaintenanceController(B2BDbContext db, IWebHostEnvironment env, IOptions<ObjectStorageOptions> storage)
     {
         _db = db;
         _env = env;
+        _storage = storage;
     }
 
     [HttpPost("product-images/reconcile")]
@@ -30,6 +34,14 @@ public sealed class MaintenanceController : ControllerBase
         [FromQuery] bool dryRun = true,
         CancellationToken ct = default)
     {
+        var provider = (_storage.Value.Provider ?? "Local").Trim();
+        if (!provider.Equals("Local", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(ApiResponse<ReconcileProductImagesResponse>.Fail(
+                new ApiError("not_supported", $"Reconcile is only supported for Local storage provider. Current: {provider}.", null),
+                HttpContext.TraceIdentifier));
+        }
+
         var webRoot = _env.WebRootPath;
         if (string.IsNullOrWhiteSpace(webRoot))
             webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
