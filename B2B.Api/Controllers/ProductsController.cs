@@ -7,6 +7,7 @@ using ImageEntity = B2B.Domain.Entities.ProductImage;
 using SpecEntity = B2B.Domain.Entities.ProductSpec;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -24,6 +25,7 @@ public sealed class ProductsController : ControllerBase
     }
 
     [HttpGet]
+    [EnableRateLimiting("read")]
     /// <summary>List products (paginated).</summary>
     /// <remarks>
     /// Returns a lightweight, mobile-friendly product list (no large description fields, no navigation graphs).
@@ -76,47 +78,46 @@ public sealed class ProductsController : ControllerBase
 
         var total = await query.LongCountAsync(ct);
 
-        var items = await query
+        // Optimize list query: avoid per-row correlated subqueries for category name and primary image.
+        var pageQuery = query
             .Skip(page.Skip)
-            .Take(page.PageSize)
-            .Join(
-                _db.Users.AsNoTracking(),
-                p => p.SellerUserId,
-                u => u.UserId,
-                (p, u) => new { p, u.DisplayName }
-            )
-            .Select(x => new
+            .Take(page.PageSize);
+
+        var primaryImageByProduct = _db.ProductImages.AsNoTracking()
+            .GroupBy(i => i.ProductId)
+            .Select(g => new
             {
-                x.p,
-                x.DisplayName,
-                PrimaryImageUrl = _db.ProductImages.AsNoTracking()
-                    .Where(i => i.ProductId == x.p.ProductId)
+                ProductId = g.Key,
+                Url = g
                     .OrderByDescending(i => i.IsPrimary)
                     .ThenBy(i => i.SortOrder)
                     .Select(i => i.Url)
                     .FirstOrDefault()
-            })
-            .Select(x => new ProductListItem(
-                x.p.ProductId,
-                x.p.SellerUserId,
-                x.DisplayName ?? x.p.SellerUserId.ToString(),
-                x.p.CategoryId,
-                x.p.CategoryId == null
-                    ? null
-                    : _db.Categories.AsNoTracking()
-                        .Where(c => c.CategoryId == x.p.CategoryId)
-                        .Select(c => c.Name)
-                        .FirstOrDefault(),
-                x.PrimaryImageUrl,
-                x.p.Sku,
-                x.p.Name,
-                x.p.CurrencyCode,
-                x.p.DealerPrice,
-                x.p.MsrpPrice,
-                x.p.StockQuantity,
-                x.p.IsActive
-            ))
-            .ToListAsync(ct);
+            });
+
+        var items = await (
+            from p in pageQuery
+            join u in _db.Users.AsNoTracking() on p.SellerUserId equals u.UserId
+            join c in _db.Categories.AsNoTracking() on p.CategoryId equals c.CategoryId into cat
+            from c in cat.DefaultIfEmpty()
+            join pi in primaryImageByProduct on p.ProductId equals pi.ProductId into imgs
+            from pi in imgs.DefaultIfEmpty()
+            select new ProductListItem(
+                p.ProductId,
+                p.SellerUserId,
+                u.DisplayName ?? p.SellerUserId.ToString(),
+                p.CategoryId,
+                c == null ? null : c.Name,
+                pi == null ? null : pi.Url,
+                p.Sku,
+                p.Name,
+                p.CurrencyCode,
+                p.DealerPrice,
+                p.MsrpPrice,
+                p.StockQuantity,
+                p.IsActive
+            )
+        ).ToListAsync(ct);
 
         var httpRequest = HttpContext.Request;
         var itemsWithPublicUrls = items
@@ -138,6 +139,7 @@ public sealed class ProductsController : ControllerBase
 
     [HttpPatch("{productId:guid}/stock")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateStock(Guid productId, [FromBody] UpdateStockRequest req, CancellationToken ct)
     {
         if (req.StockQuantity < 0)
@@ -168,6 +170,7 @@ public sealed class ProductsController : ControllerBase
 
     [HttpPatch("{productId:guid}/active")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateActive(Guid productId, [FromBody] UpdateActiveRequest req, CancellationToken ct)
     {
         var product = await _db.Products.FirstOrDefaultAsync(p => p.ProductId == productId, ct);
@@ -187,6 +190,7 @@ public sealed class ProductsController : ControllerBase
     }
 
     [HttpGet("{productId:guid}")]
+    [EnableRateLimiting("read")]
     public async Task<ActionResult<ApiResponse<ProductDetail>>> Get(Guid productId, CancellationToken ct)
     {
         var item = await _db.Products.AsNoTracking()

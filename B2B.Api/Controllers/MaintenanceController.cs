@@ -4,6 +4,7 @@ using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace B2B.Api.Controllers;
@@ -23,6 +24,7 @@ public sealed class MaintenanceController : ControllerBase
     }
 
     [HttpPost("product-images/reconcile")]
+    [EnableRateLimiting("write")]
     [ProducesResponseType(typeof(ApiResponse<ReconcileProductImagesResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<ReconcileProductImagesResponse>>> ReconcileProductImages(
         [FromQuery] bool dryRun = true,

@@ -50,7 +50,8 @@ public sealed class ExceptionHandlingMiddleware : IMiddleware
 
         context.Response.Clear();
         context.Response.StatusCode = (int)statusCode;
-        context.Response.ContentType = "application/problem+json";
+        // We return a B2B.Contracts ApiResponse envelope, not RFC7807 ProblemDetails.
+        context.Response.ContentType = "application/json; charset=utf-8";
 
         IReadOnlyDictionary<string, string[]>? details = null;
         if (ex is ValidationException vex)

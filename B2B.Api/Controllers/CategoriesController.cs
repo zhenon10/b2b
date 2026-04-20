@@ -5,6 +5,7 @@ using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace B2B.Api.Controllers;
@@ -21,6 +22,7 @@ public sealed class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [EnableRateLimiting("read")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CategoryListItem>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<CategoryListItem>>>> List(
         [FromQuery] bool includeInactive = false,
@@ -41,6 +43,7 @@ public sealed class CategoriesController : ControllerBase
 
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
     [ProducesResponseType(typeof(ApiResponse<CategoryListItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<CategoryListItem>>> Create([FromBody] CreateCategoryRequest req, CancellationToken ct)
     {
@@ -70,6 +73,7 @@ public sealed class CategoriesController : ControllerBase
 
     [HttpPut("{categoryId:guid}")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
     [ProducesResponseType(typeof(ApiResponse<CategoryListItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<CategoryListItem>>> Update(
         Guid categoryId,
@@ -104,6 +108,7 @@ public sealed class CategoriesController : ControllerBase
 
     [HttpDelete("{categoryId:guid}")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid categoryId, CancellationToken ct)
     {

@@ -22,6 +22,7 @@ public sealed class B2BDbContext : DbContext
     public DbSet<OrderSubmission> OrderSubmissions => Set<OrderSubmission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AdminDealerApprovalIdempotency> AdminDealerApprovalIdempotencies => Set<AdminDealerApprovalIdempotency>();
+    public DbSet<UploadAudit> UploadAudits => Set<UploadAudit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -309,6 +310,29 @@ public sealed class B2BDbContext : DbContext
             b.HasIndex(x => new { x.AdminUserId, x.IdempotencyKey })
                 .IsUnique()
                 .HasDatabaseName("UX_AdminDealerApproval_Admin_Key");
+        });
+
+        modelBuilder.Entity<UploadAudit>(b =>
+        {
+            b.ToTable("UploadAudits");
+            b.HasKey(x => x.UploadAuditId);
+
+            b.Property(x => x.Kind).HasMaxLength(60).IsRequired();
+            b.Property(x => x.FileExt).HasMaxLength(10).IsRequired();
+            b.Property(x => x.StoredPath).HasMaxLength(500).IsRequired();
+            b.Property(x => x.PublicUrl).HasMaxLength(1000).IsRequired();
+            b.Property(x => x.FileSizeBytes).IsRequired();
+            b.Property(x => x.Width).IsRequired();
+            b.Property(x => x.Height).IsRequired();
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            b.HasIndex(x => new { x.UserId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.Kind, x.CreatedAtUtc });
         });
 
         base.OnModelCreating(modelBuilder);

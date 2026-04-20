@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Authorization;
 
 using Microsoft.AspNetCore.Mvc;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 using Microsoft.EntityFrameworkCore;
 
 
@@ -49,6 +51,7 @@ public sealed class AdminUsersController : ControllerBase
 
 
     [HttpGet("pending-dealers")]
+    [EnableRateLimiting("read")]
 
     public async Task<ActionResult<ApiResponse<IReadOnlyList<PendingDealerDto>>>> GetPendingDealers(CancellationToken ct)
 
@@ -99,6 +102,7 @@ public sealed class AdminUsersController : ControllerBase
 
 
     [HttpPost("{userId:guid}/approve")]
+    [EnableRateLimiting("write")]
 
     public async Task<ActionResult<ApiResponse<object>>> ApproveDealer(Guid userId, CancellationToken ct)
 

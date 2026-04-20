@@ -1,3 +1,5 @@
+using B2B.Application.Orders;
+using B2B.Infrastructure.Orders;
 using B2B.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,6 +14,9 @@ public static class DependencyInjection
         IConfiguration configuration,
         string? environmentName)
     {
+        // Infrastructure services should be available even when DbContext registration is overridden (e.g. tests).
+        services.AddScoped<IOrderSubmissionService, OrderSubmissionService>();
+
         var connectionString = configuration.GetConnectionString("SqlServer");
         if (string.IsNullOrWhiteSpace(connectionString))
         {

@@ -5,6 +5,7 @@ using B2B.Domain.Enums;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace B2B.Api.Controllers;
@@ -19,6 +20,7 @@ public sealed class AdminOrdersController : ControllerBase
     public AdminOrdersController(B2BDbContext db) => _db = db;
 
     [HttpGet]
+    [EnableRateLimiting("read")]
     public async Task<ActionResult<ApiResponse<PagedResult<AdminOrderListItem>>>> List(
         [FromQuery] PageRequest page,
         [FromQuery] OrderStatus? status,
@@ -63,6 +65,7 @@ public sealed class AdminOrdersController : ControllerBase
     }
 
     [HttpGet("{orderId:guid}")]
+    [EnableRateLimiting("read")]
     public async Task<ActionResult<ApiResponse<AdminOrderDetail>>> Get(Guid orderId, CancellationToken ct)
     {
         var row = await (

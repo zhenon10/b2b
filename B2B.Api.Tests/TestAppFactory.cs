@@ -2,6 +2,7 @@ using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,7 +16,37 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public const string TestAudience = "B2B.Api.Tests.Client";
     public const string TestKey = "TEST_SIGNING_KEY__THIS_MUST_BE_AT_LEAST_32_CHARS";
 
-    private const string TestDbName = "B2B_Test";
+    private readonly string _dbName = $"B2B_Test_{Guid.NewGuid():N}";
+    private readonly string _sqlServerBaseConnectionString =
+        Environment.GetEnvironmentVariable("B2B_TEST_SQLSERVER")
+        ?? @"Server=(localdb)\MSSQLLocalDB;Trusted_Connection=True;TrustServerCertificate=True";
+
+    private string BuildDbConnectionString()
+    {
+        var b = new SqlConnectionStringBuilder(_sqlServerBaseConnectionString);
+        b.InitialCatalog = _dbName;
+        b.TrustServerCertificate = true;
+        if (!b.ContainsKey("Encrypt"))
+            b.Encrypt = false;
+        return b.ConnectionString;
+    }
+
+    private void EnsureDatabaseExists(string connectionString)
+    {
+        var b = new SqlConnectionStringBuilder(connectionString);
+        var dbName = b.InitialCatalog;
+        b.InitialCatalog = "master";
+
+        using var conn = new SqlConnection(b.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+IF DB_ID(N'{dbName}') IS NULL
+BEGIN
+    CREATE DATABASE [{dbName}];
+END";
+        cmd.ExecuteNonQuery();
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -24,9 +55,10 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.Sources.Clear();
+            var cs = BuildDbConnectionString();
             var overrides = new Dictionary<string, string?>
             {
-                ["ConnectionStrings:SqlServer"] = $"Server=(localdb)\\MSSQLLocalDB;Database={TestDbName};Trusted_Connection=True;TrustServerCertificate=True",
+                ["ConnectionStrings:SqlServer"] = cs,
                 // Explicit JWT values for tests (also include alias keys)
                 ["Jwt:Issuer"] = TestIssuer,
                 ["Jwt:Audience"] = TestAudience,
@@ -48,14 +80,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(DbContextOptions<B2BDbContext>));
             services.RemoveAll(typeof(B2BDbContext));
 
+            var cs = BuildDbConnectionString();
             services.AddDbContext<B2BDbContext>(options =>
-                options.UseSqlServer($"Server=(localdb)\\MSSQLLocalDB;Database={TestDbName};Trusted_Connection=True;TrustServerCertificate=True"));
+                options.UseSqlServer(cs));
 
             // Ensure schema exists
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<B2BDbContext>();
-            db.Database.EnsureDeleted();
+            EnsureDatabaseExists(cs);
             db.Database.Migrate();
         });
     }
@@ -67,9 +100,22 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             try
             {
-                using var scope = Services.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<B2BDbContext>();
-                db.Database.EnsureDeleted();
+                var b = new SqlConnectionStringBuilder(_sqlServerBaseConnectionString);
+                b.InitialCatalog = "master";
+                b.TrustServerCertificate = true;
+                if (!b.ContainsKey("Encrypt"))
+                    b.Encrypt = false;
+
+                using var conn = new SqlConnection(b.ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $@"
+IF DB_ID(N'{_dbName}') IS NOT NULL
+BEGIN
+    ALTER DATABASE [{_dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE [{_dbName}];
+END";
+                cmd.ExecuteNonQuery();
             }
             catch
             {

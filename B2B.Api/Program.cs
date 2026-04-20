@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using B2B.Contracts;
 using B2B.Api.Middleware;
@@ -84,6 +85,21 @@ builder.Services.AddHealthChecks()
         failureStatus: HealthStatus.Unhealthy,
         tags: ["ready"]);
 
+// CORS (explicit, config-driven). If no origins are configured, we keep the default ASP.NET posture (same-origin).
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var enableCors = corsOrigins.Length > 0;
+if (enableCors)
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("default", p =>
+            p.WithOrigins(corsOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+        );
+    });
+}
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -101,6 +117,61 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             });
     });
+
+    // Broad protection for catalog browsing and other read-heavy endpoints.
+    options.AddPolicy("read", httpContext =>
+    {
+        var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? httpContext.Request.Headers.Host.ToString();
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 240,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Broad protection for write-heavy endpoints (orders, admin updates).
+    options.AddPolicy("write", httpContext =>
+    {
+        var userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var partitionKey = string.IsNullOrWhiteSpace(userId)
+            ? httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString()
+            : $"user:{userId}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Stricter protection for uploads.
+    options.AddPolicy("uploads", httpContext =>
+    {
+        var userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var partitionKey = string.IsNullOrWhiteSpace(userId)
+            ? httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString()
+            : $"user:{userId}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
     options.OnRejected = async (context, ct) =>
     {
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
@@ -126,6 +197,9 @@ builder.Services.AddOptions<PublicAssetUrlOptions>()
 
 builder.Services.AddOptions<ApiPublishingOptions>()
     .BindConfiguration(ApiPublishingOptions.SectionName);
+
+builder.Services.AddOptions<UploadLimitsOptions>()
+    .BindConfiguration(UploadLimitsOptions.SectionName);
 
 // Include API-layer validators (request DTOs defined in controllers)
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly, includeInternalTypes: true);
@@ -205,6 +279,29 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// Production guardrails: fail fast if dangerous dev settings leak into non-dev environments.
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+{
+    static string? GetString(IConfiguration cfg, string key) => cfg[key];
+    static bool GetBool(IConfiguration cfg, string key) => cfg.GetValue<bool>(key);
+
+    var seedMode = (GetString(app.Configuration, "Seed:Mode") ?? "Off").Trim();
+    if (!seedMode.Equals("Off", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Seed:Mode must be Off outside Development/Testing.");
+
+    if (GetBool(app.Configuration, "Database:ApplyMigrationsOnStartup"))
+        throw new InvalidOperationException("Database:ApplyMigrationsOnStartup must be false outside Development/Testing.");
+
+    if (GetBool(app.Configuration, "Auth:AllowPublicRegistration"))
+        throw new InvalidOperationException("Auth:AllowPublicRegistration must be false outside Development/Testing.");
+
+    if (GetBool(app.Configuration, "Api:EnableSwagger"))
+        throw new InvalidOperationException("Api:EnableSwagger must be false outside Development/Testing.");
+
+    if (GetBool(app.Configuration, "PublicAssets:RewritePrivateLanUploadUrls"))
+        throw new InvalidOperationException("PublicAssets:RewritePrivateLanUploadUrls must be false outside Development/Testing.");
+}
+
 if (!app.Environment.IsEnvironment("Testing"))
 {
     var sqlCs = app.Configuration.GetConnectionString("SqlServer");
@@ -242,6 +339,11 @@ if (enableSwagger)
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (enableCors)
+{
+    app.UseCors("default");
+}
 
 app.UseStaticFiles();
 

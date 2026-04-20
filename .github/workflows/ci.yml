@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Your_strong_password123!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Your_strong_password123!' -Q 'SELECT 1' -C"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ./B2B.Backend/B2B.Api/B2B.Api.csproj
+
+      - name: Build (Release)
+        run: dotnet build -c Release --no-restore ./B2B.Backend/B2B.Api/B2B.Api.csproj
+
+      - name: Test (Release)
+        env:
+          B2B_TEST_SQLSERVER: "Server=localhost,1433;User ID=sa;Password=Your_strong_password123!;TrustServerCertificate=True;Encrypt=False"
+        run: dotnet test -c Release --no-build ./B2B.Backend/B2B.Api.Tests/B2B.Api.Tests.csproj
