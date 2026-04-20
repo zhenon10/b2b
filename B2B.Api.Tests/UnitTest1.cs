@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using B2B.Api.Contracts;
+using B2B.Contracts;
 using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
 using FluentAssertions;
@@ -49,9 +49,10 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
         });
         reg.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResult>>();
+        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResponse>>();
         regPayload!.Success.Should().BeTrue();
         regPayload.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        regPayload.Data.RefreshToken.Should().NotBeNullOrWhiteSpace();
 
         var login = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
@@ -62,11 +63,23 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
 
         var loginPayload = await login.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
         loginPayload!.Success.Should().BeTrue();
+        loginPayload.Data!.RefreshToken.Should().NotBeNullOrWhiteSpace();
+
+        var refresh = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = loginPayload.Data.RefreshToken });
+        refresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshPayload = await refresh.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        refreshPayload!.Success.Should().BeTrue();
+        refreshPayload.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        refreshPayload.Data.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        refreshPayload.Data.RefreshToken.Should().NotBe(loginPayload.Data.RefreshToken);
+
+        var replayOld = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = loginPayload.Data.RefreshToken });
+        replayOld.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         // sanity check: token should validate with the same test key
         var tokenHandler = new JwtSecurityTokenHandler();
         tokenHandler.ValidateToken(
-            loginPayload.Data!.AccessToken,
+            refreshPayload.Data.AccessToken,
             new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -79,12 +92,12 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
             },
             out _);
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginPayload.Data!.AccessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", refreshPayload.Data!.AccessToken);
         var me = await client.GetAsync("/api/v1/auth/me");
         if (me.StatusCode != HttpStatusCode.OK)
         {
             var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(loginPayload.Data!.AccessToken);
+            var jwt = handler.ReadJwtToken(refreshPayload.Data!.AccessToken);
             var kid = jwt.Header.TryGetValue("kid", out var kidVal) ? kidVal?.ToString() : "";
             var alg = jwt.Header.Alg;
             var body = await me.Content.ReadAsStringAsync();
@@ -115,7 +128,7 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
         });
 
         reg.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        var payload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResult>>();
+        var payload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResponse>>();
         payload.Should().NotBeNull();
         payload!.Success.Should().BeFalse();
         payload.Error!.Code.Should().Be("registration_disabled");
@@ -142,7 +155,7 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
             Password = "P@ssw0rd!"
         });
         reg.StatusCode.Should().Be(HttpStatusCode.OK);
-        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResult>>();
+        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResponse>>();
         regPayload!.Success.Should().BeTrue();
         regPayload.Data!.AccessToken.Should().BeNullOrWhiteSpace();
 
@@ -220,12 +233,12 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
         }
 
         var client = _factory.CreateClient();
-        var list = await client.GetFromJsonAsync<ApiResponse<PagedResult<ProductListItemDto>>>("/api/v1/products?page=1&pageSize=10");
+        var list = await client.GetFromJsonAsync<ApiResponse<PagedResult<ProductListItem>>>("/api/v1/products?page=1&pageSize=10");
         list!.Success.Should().BeTrue();
         list.Data!.Items.Should().NotBeEmpty();
 
         var first = list.Data.Items[0];
-        var detail = await client.GetFromJsonAsync<ApiResponse<ProductDetailDto>>($"/api/v1/products/{first.ProductId}");
+        var detail = await client.GetFromJsonAsync<ApiResponse<ProductDetail>>($"/api/v1/products/{first.ProductId}");
         detail!.Success.Should().BeTrue();
         detail.Data!.ProductId.Should().Be(first.ProductId);
     }
@@ -282,7 +295,7 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
         // Register buyer + auth
         var client = _factory.CreateClient();
         var reg = await client.PostAsJsonAsync("/api/v1/auth/register", new { Email = "buyer2@example.com", Password = "P@ssw0rd!" });
-        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResult>>();
+        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResponse>>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", regPayload!.Data!.AccessToken);
 
         // sanity check: token validates with test key
@@ -320,56 +333,89 @@ public sealed class ApiScenariosTests : IClassFixture<CustomWebApplicationFactor
         submitPayload.Data!.GrandTotal.Should().Be(1.00m);
 
         // List orders
-        var list = await client.GetFromJsonAsync<ApiResponse<PagedResult<OrderListItemDto>>>("/api/v1/orders?page=1&pageSize=10");
+        var list = await client.GetFromJsonAsync<ApiResponse<PagedResult<DealerOrderListItem>>>("/api/v1/orders?page=1&pageSize=10");
         list!.Success.Should().BeTrue();
         list.Data!.Items.Should().NotBeEmpty();
     }
 
-    // Local DTOs matching API output shapes
-    private sealed record RegisterResult(string? AccessToken, string Message);
-    private sealed record AuthResponse(string AccessToken);
-    private sealed record ProductListItemDto(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        string? PrimaryImageUrl,
-        string Sku,
-        string Name,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive);
+    [Fact]
+    public async Task Jwt_Challenge_Returns_Json_Envelope_With_TraceId()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-jwt");
+        var me = await client.GetAsync("/api/v1/auth/me");
+        me.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var text = await me.Content.ReadAsStringAsync();
+        text.ToLowerInvariant().Should().Contain("traceid");
+        text.ToLowerInvariant().Should().Contain("unauthorized");
+    }
 
-    private sealed record ProductImageDto(string Url, int SortOrder, bool IsPrimary);
-    private sealed record ProductSpecDto(string Key, string Value, int SortOrder);
+    [Fact]
+    public async Task ApproveDealer_Is_Idempotent_With_Same_Idempotency_Key()
+    {
+        await using var fx = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Seed:Mode"] = "RolesAndAdmin",
+                    ["Seed:AdminPassword"] = "Adm1n-P@ss!",
+                    ["Seed:AdminEmail"] = "admin@b2b.local",
+                    ["Auth:AutoApproveRegisteredDealers"] = "false"
+                });
+            });
+        });
 
-    private sealed record ProductDetailDto(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        IReadOnlyList<ProductImageDto> Images,
-        IReadOnlyList<ProductSpecDto> Specs,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive);
-    private sealed record SubmitOrderResponse(Guid OrderId, long OrderNumber, decimal GrandTotal);
-    private sealed record OrderListItemDto(
-        Guid OrderId,
-        long OrderNumber,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal GrandTotal,
-        byte Status,
-        DateTime CreatedAtUtc);
+        var client = fx.CreateClient();
+
+        var reg = await client.PostAsJsonAsync("/api/v1/auth/register", new
+        {
+            Email = "pendingidem@example.com",
+            Password = "P@ssw0rd!",
+            DisplayName = "Pending"
+        });
+        reg.StatusCode.Should().Be(HttpStatusCode.OK);
+        var regPayload = await reg.Content.ReadFromJsonAsync<ApiResponse<RegisterResponse>>();
+        regPayload!.Success.Should().BeTrue();
+        regPayload.Data!.AccessToken.Should().BeNullOrWhiteSpace();
+
+        var adminLogin = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            Email = "admin@b2b.local",
+            Password = "Adm1n-P@ss!"
+        });
+        adminLogin.StatusCode.Should().Be(HttpStatusCode.OK);
+        var adminPayload = await adminLogin.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+        adminPayload!.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", adminPayload.Data!.AccessToken);
+
+        Guid regUserId;
+        using (var scope = fx.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<B2BDbContext>();
+            regUserId = (await db.Users.AsNoTracking()
+                .FirstAsync(u => u.NormalizedEmail == "PENDINGIDEM@EXAMPLE.COM")).UserId;
+        }
+
+        const string idem = "idem-approve-1";
+        using (var req1 = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/users/{regUserId}/approve"))
+        {
+            req1.Headers.TryAddWithoutValidation("Idempotency-Key", idem);
+            var r1 = await client.SendAsync(req1);
+            r1.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        using (var req2 = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/users/{regUserId}/approve"))
+        {
+            req2.Headers.TryAddWithoutValidation("Idempotency-Key", idem);
+            var r2 = await client.SendAsync(req2);
+            r2.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await r2.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            body!.Success.Should().BeTrue();
+        }
+    }
+
 }

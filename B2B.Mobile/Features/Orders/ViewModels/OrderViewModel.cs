@@ -1,6 +1,7 @@
-using B2B.Mobile.Features.Cart.Services;
+using B2B.Contracts;
+using B2B.Domain.Enums;
 using B2B.Mobile.Core.Api;
-using B2B.Mobile.Features.Orders.Models;
+using B2B.Mobile.Features.Cart.Services;
 using B2B.Mobile.Features.Orders.Services;
 using B2B.Mobile.Features.Orders;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -17,11 +18,13 @@ public partial class OrderViewModel : ObservableObject
     private readonly CartService _cart;
     private readonly OrdersService _orders;
     private string? _idempotencyKey;
+    private string? _lastSubmitErrorCode;
     private DateTime? _lastHistorySuccessUtc;
     private Guid? _pendingHistoryDetailOrderId;
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? errorTraceId;
     [ObservableProperty] private string currencyCode = "USD";
     [ObservableProperty] private string? result;
     [ObservableProperty] private decimal total;
@@ -30,16 +33,23 @@ public partial class OrderViewModel : ObservableObject
     [ObservableProperty] private string sellerSummary = "Satıcı: —";
     [ObservableProperty] private bool canSubmit;
 
+    /// <summary>
+    /// Yalnızca idempotency çatışması yaşandığında kullanıcıya "yeni anahtar ile tekrar dene" aksiyonu gösterilir.
+    /// </summary>
+    public bool CanRetryWithNewKey => string.Equals(_lastSubmitErrorCode, "idempotency_conflict", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>0 = sepet, 1 = sipariş geçmişi.</summary>
     [ObservableProperty] private int dealerPanel;
 
     [ObservableProperty] private bool isHistoryBusy;
     [ObservableProperty] private bool isHistoryRefreshing;
     [ObservableProperty] private string? historyError;
+    [ObservableProperty] private string? historyErrorTraceId;
     [ObservableProperty] private int historyPage = 1;
     [ObservableProperty] private long historyTotalCount;
     [ObservableProperty] private DealerOrderDetail? selectedHistoryDetail;
     [ObservableProperty] private string? historyDetailError;
+    [ObservableProperty] private string? historyDetailErrorTraceId;
     [ObservableProperty] private bool hasHistoryDetail;
     [ObservableProperty] private bool isHistoryDetailBusy;
 
@@ -57,7 +67,17 @@ public partial class OrderViewModel : ObservableObject
         Recompute();
     }
 
-    public sealed record CartLineVm(string Name, string Sku, int Quantity, decimal UnitPrice, decimal LineTotal);
+    public sealed record CartLineVm(
+        string Name,
+        string Sku,
+        int Quantity,
+        decimal UnitPrice,
+        decimal LineTotal,
+        string CurrencyCode)
+    {
+        public string UnitDisplay => $"{UnitPrice:0.##} {CurrencyCode}";
+        public string LineDisplay => $"{LineTotal:0.##} {CurrencyCode}";
+    }
 
     public bool IsCartPanel => DealerPanel == 0;
 
@@ -77,14 +97,14 @@ public partial class OrderViewModel : ObservableObject
         !HasHistoryDetail && !string.IsNullOrWhiteSpace(HistoryDetailError);
 
     public string HistoryDetailStatusLine =>
-        SelectedHistoryDetail is { } d ? $"Durum: {OrderStatuses.ToTrLabel(d.Status)}" : "";
+        SelectedHistoryDetail is { } d ? $"Durum: {OrderStatuses.ToTrLabel((int)d.Status)}" : "";
 
     public string HistoryDetailTotalLine =>
         SelectedHistoryDetail is { } d ? $"Toplam: {d.GrandTotal:0.##} {d.CurrencyCode}" : "";
 
     /// <summary>Kargoda veya iptal değilse bayi iptal edebilir.</summary>
     public bool CanCancelSelectedOrder =>
-        SelectedHistoryDetail is { } d && d.Status is not 3 and not 4;
+        SelectedHistoryDetail is { } d && d.Status is not OrderStatus.Shipped and not OrderStatus.Cancelled;
 
     partial void OnDealerPanelChanged(int value)
     {
@@ -170,6 +190,13 @@ public partial class OrderViewModel : ObservableObject
     private async Task RetrySubmitAsync() => await SubmitAsync();
 
     [RelayCommand]
+    private async Task RetryWithNewKeyAsync()
+    {
+        ResetIdempotency();
+        await SubmitAsync();
+    }
+
+    [RelayCommand]
     private async Task RetryHistoryDetailAsync()
     {
         if (IsHistoryDetailBusy || _pendingHistoryDetailOrderId is not Guid id)
@@ -191,10 +218,12 @@ public partial class OrderViewModel : ObservableObject
         if (IsHistoryBusy) return;
         IsHistoryBusy = true;
         HistoryError = null;
+        HistoryErrorTraceId = null;
         if (clearSelection)
         {
             SelectedHistoryDetail = null;
             HistoryDetailError = null;
+            HistoryDetailErrorTraceId = null;
             _pendingHistoryDetailOrderId = null;
             OnPropertyChanged(nameof(ShowHistoryDetailLoadFailure));
         }
@@ -205,6 +234,7 @@ public partial class OrderViewModel : ObservableObject
             if (!resp.Success || resp.Data is null)
             {
                 HistoryError = FormatOrderApiError(resp.Error) ?? "Siparişler yüklenemedi.";
+                HistoryErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -250,6 +280,7 @@ public partial class OrderViewModel : ObservableObject
     {
         SelectedHistoryDetail = null;
         HistoryDetailError = null;
+        HistoryDetailErrorTraceId = null;
         _pendingHistoryDetailOrderId = null;
         OnPropertyChanged(nameof(ShowHistoryDetailLoadFailure));
     }
@@ -257,6 +288,7 @@ public partial class OrderViewModel : ObservableObject
     private async Task LoadHistoryDetailForOrderAsync(Guid orderId, CancellationToken ct, bool clearDetailFirst)
     {
         HistoryDetailError = null;
+        HistoryDetailErrorTraceId = null;
         if (clearDetailFirst)
         {
             SelectedHistoryDetail = null;
@@ -270,6 +302,7 @@ public partial class OrderViewModel : ObservableObject
             if (!resp.Success || resp.Data is null)
             {
                 HistoryDetailError = FormatOrderApiError(resp.Error) ?? "Detay yüklenemedi.";
+                HistoryDetailErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 if (clearDetailFirst)
                     OnPropertyChanged(nameof(ShowHistoryDetailLoadFailure));
                 return;
@@ -302,12 +335,14 @@ public partial class OrderViewModel : ObservableObject
 
         IsHistoryBusy = true;
         HistoryDetailError = null;
+        HistoryDetailErrorTraceId = null;
         try
         {
             var resp = await _orders.CancelMyOrderAsync(d.OrderId, CancellationToken.None);
             if (!resp.Success)
             {
                 HistoryDetailError = FormatOrderApiError(resp.Error) ?? "Sipariş iptal edilemedi.";
+                HistoryDetailErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -326,7 +361,10 @@ public partial class OrderViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         Error = null;
+        ErrorTraceId = null;
         Result = null;
+        _lastSubmitErrorCode = null;
+        OnPropertyChanged(nameof(CanRetryWithNewKey));
 
         try
         {
@@ -340,6 +378,7 @@ public partial class OrderViewModel : ObservableObject
             if (sellerIds.Count != 1)
             {
                 Error = "Sepette yalnızca tek satıcıya ait ürünler olmalıdır.";
+                ErrorTraceId = null;
                 return;
             }
 
@@ -355,13 +394,18 @@ public partial class OrderViewModel : ObservableObject
 
             if (!resp.Success || resp.Data is null)
             {
+                _lastSubmitErrorCode = resp.Error?.Code;
+                OnPropertyChanged(nameof(CanRetryWithNewKey));
                 Error = FormatOrderApiError(resp.Error) ?? "Sipariş gönderilemedi.";
+                ErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
             Result = $"Sipariş #{resp.Data.OrderNumber} alındı. Toplam: {resp.Data.GrandTotal:0.00} {CurrencyCode}";
             _cart.Clear();
             _idempotencyKey = null;
+            _lastSubmitErrorCode = null;
+            OnPropertyChanged(nameof(CanRetryWithNewKey));
 
             if (DealerPanel == 1)
                 await LoadHistoryPageAsync(1, clearSelection: true);
@@ -371,10 +415,12 @@ public partial class OrderViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             Error = "İşlem iptal edildi.";
+            ErrorTraceId = null;
         }
         catch (Exception ex)
         {
             Error = $"Beklenmeyen hata: {ex.Message}";
+            ErrorTraceId = null;
         }
         finally
         {
@@ -388,13 +434,22 @@ public partial class OrderViewModel : ObservableObject
         _idempotencyKey = Guid.NewGuid().ToString("N");
         Result = null;
         Error = null;
+        ErrorTraceId = null;
+        _lastSubmitErrorCode = null;
+        OnPropertyChanged(nameof(CanRetryWithNewKey));
     }
 
     private void Recompute()
     {
         Lines.Clear();
         foreach (var line in _cart.Lines.OrderBy(l => l.Name))
-            Lines.Add(new CartLineVm(line.Name, line.Sku, line.Quantity, line.UnitPrice, line.LineTotal));
+            Lines.Add(new CartLineVm(
+                line.Name,
+                line.Sku,
+                line.Quantity,
+                line.UnitPrice,
+                line.LineTotal,
+                line.CurrencyCode.ToUpperInvariant()));
 
         Total = _cart.Total;
 
@@ -414,13 +469,22 @@ public partial class OrderViewModel : ObservableObject
         {
             CurrencyCode = currencies[0].ToUpperInvariant();
             if (sellerIds.Count <= 1)
+            {
                 Error = null;
+                ErrorTraceId = null;
+            }
         }
         else if (currencies.Count > 1)
+        {
             Error = "Sepet birden fazla para birimi içeriyor. Aynı para birimindeki ürünlerle sipariş verin.";
+            ErrorTraceId = null;
+        }
 
         if (sellerIds.Count > 1)
+        {
             Error = "Sepette yalnızca tek satıcıya ait ürünler olabilir.";
+            ErrorTraceId = null;
+        }
 
         TotalWithCurrency = _cart.Lines.Count == 0
             ? $"0 {CurrencyCode}"

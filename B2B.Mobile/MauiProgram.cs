@@ -4,6 +4,8 @@ using CommunityToolkit.Maui;
 using B2B.Mobile.Core;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
+using B2B.Mobile.Core.Connectivity;
+using B2B.Mobile.Core.Security;
 using B2B.Mobile.Core.Finance;
 using B2B.Mobile.Core.Shell;
 using B2B.Mobile.Features.Auth.Services;
@@ -60,8 +62,10 @@ public static class MauiProgram
 			});
 
         var apiBaseUrl = ApiBaseUrlResolver.Resolve(builder.Configuration);
+        builder.Services.AddSingleton(new ApplicationApiSessionState(apiBaseUrl));
 
         builder.Services.AddSingleton<IAuthSession, SecureAuthSession>();
+        builder.Services.AddSingleton<IAccessTokenRefresher, AccessTokenRefresher>();
         builder.Services.AddSingleton<LoginPresentationState>();
         builder.Services.AddSingleton<ISessionSignOutHandler, ShellSessionSignOutHandler>();
         builder.Services.AddSingleton<CatalogNotifications>();
@@ -81,14 +85,19 @@ public static class MauiProgram
         });
 
         builder.Services.AddSingleton<ExchangeRateService>();
+        builder.Services.AddSingleton<ConnectivityService>();
+        builder.Services.AddSingleton<AppResumeLockService>();
         builder.Services.AddSingleton<MainHeaderViewModel>();
         builder.Services.AddSingleton<MainFlyoutViewModel>();
+        builder.Services.AddSingleton<AppShellViewModel>();
 
         builder.Services.AddSingleton<ApiClient>(sp =>
             new ApiClient(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("api"),
                 sp.GetRequiredService<IAuthSession>(),
-                sp.GetRequiredService<ISessionSignOutHandler>()
+                sp.GetRequiredService<IAccessTokenRefresher>(),
+                sp.GetRequiredService<ISessionSignOutHandler>(),
+                sp.GetRequiredService<ILogger<ApiClient>>()
             ));
 
         builder.Services.AddSingleton<AuthService>();
@@ -115,6 +124,7 @@ public static class MauiProgram
         builder.Services.AddTransient<OrderViewModel>();
         builder.Services.AddTransient<AdminOrdersViewModel>();
         builder.Services.AddTransient<ProfileViewModel>();
+        builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<AdminHubViewModel>();
         builder.Services.AddTransient<PendingDealersViewModel>();
 
@@ -129,6 +139,7 @@ public static class MauiProgram
         builder.Services.AddTransient<OrderPage>();
         builder.Services.AddTransient<AdminOrdersPage>();
         builder.Services.AddTransient<ProfilePage>();
+        builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<AdminHubPage>();
         builder.Services.AddTransient<PendingDealersPage>();
 

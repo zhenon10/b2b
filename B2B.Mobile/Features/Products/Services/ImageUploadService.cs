@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
 
@@ -10,27 +11,33 @@ public sealed class ImageUploadService
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly IAuthSession _session;
+    private readonly IAccessTokenRefresher _refresher;
     private readonly ISessionSignOutHandler _signOut;
 
     public ImageUploadService(
         IHttpClientFactory httpFactory,
         IAuthSession session,
+        IAccessTokenRefresher refresher,
         ISessionSignOutHandler signOut)
     {
         _httpFactory = httpFactory;
         _session = session;
+        _refresher = refresher;
         _signOut = signOut;
     }
 
-    private sealed record UploadImageResponse(string Url);
+    public Task<ApiResponse<string>> UploadProductImageAsync(FileResult file, CancellationToken ct) =>
+        UploadOnceAsync(file, ct, allowRefreshRetry: true);
 
-    public async Task<ApiResponse<string>> UploadProductImageAsync(FileResult file, CancellationToken ct)
+    private async Task<ApiResponse<string>> UploadOnceAsync(FileResult file, CancellationToken ct, bool allowRefreshRetry)
     {
         var http = _httpFactory.CreateClient("api");
 
         var token = await _session.GetAccessTokenAsync();
         if (!string.IsNullOrWhiteSpace(token))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        else
+            http.DefaultRequestHeaders.Authorization = null;
 
         await using var stream = await file.OpenReadAsync();
         using var content = new MultipartFormDataContent();
@@ -40,6 +47,12 @@ public sealed class ImageUploadService
         content.Add(streamContent, "file", file.FileName);
 
         using var resp = await http.PostAsync("/api/v1/uploads/images", content, ct);
+        if (resp.StatusCode == HttpStatusCode.Unauthorized && allowRefreshRetry)
+        {
+            if (await _refresher.TryRefreshAsync(ct).ConfigureAwait(false))
+                return await UploadOnceAsync(file, ct, allowRefreshRetry: false);
+        }
+
         if (resp.StatusCode == HttpStatusCode.Unauthorized)
         {
             try
@@ -82,4 +95,3 @@ public sealed class ImageUploadService
         return new ApiResponse<string>(true, payload.Data.Url, null, payload.TraceId);
     }
 }
-

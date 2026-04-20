@@ -34,6 +34,13 @@ public partial class MainFlyoutViewModel : ObservableObject
     public bool IsAdminHubFlyout => ActiveTab == MainFlyoutTab.Admin;
     public bool IsProfileFlyout => ActiveTab == MainFlyoutTab.Profile;
 
+    /// <summary>Kısayol satırında bulunduğunuz sekme için “kendine git” düğmesini göstermeyin.</summary>
+    public bool QuickNavShowProducts => ActiveTab != MainFlyoutTab.Products;
+    public bool QuickNavShowCart => ActiveTab != MainFlyoutTab.Cart;
+    public bool QuickNavShowOrder => ActiveTab != MainFlyoutTab.Order;
+    public bool QuickNavShowProfile => ActiveTab != MainFlyoutTab.Profile;
+    public bool QuickNavShowAdminHub => CanShowAdminHub && ActiveTab != MainFlyoutTab.Admin;
+
     public MainFlyoutViewModel(CartService cart, IAuthSession auth, CatalogNotifications catalogEvents)
     {
         _cart = cart;
@@ -52,6 +59,18 @@ public partial class MainFlyoutViewModel : ObservableObject
         OnPropertyChanged(nameof(IsOrderFlyout));
         OnPropertyChanged(nameof(IsAdminHubFlyout));
         OnPropertyChanged(nameof(IsProfileFlyout));
+        RaiseQuickNavVisibility();
+    }
+
+    partial void OnCanShowAdminHubChanged(bool value) => RaiseQuickNavVisibility();
+
+    private void RaiseQuickNavVisibility()
+    {
+        OnPropertyChanged(nameof(QuickNavShowProducts));
+        OnPropertyChanged(nameof(QuickNavShowCart));
+        OnPropertyChanged(nameof(QuickNavShowOrder));
+        OnPropertyChanged(nameof(QuickNavShowProfile));
+        OnPropertyChanged(nameof(QuickNavShowAdminHub));
     }
 
     private void OnCartLinesChanged()

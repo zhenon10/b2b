@@ -2,8 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using B2B.Api.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Contracts;
+using B2B.Api.Security;
 using B2B.Domain.Entities;
 using B2B.Domain.Enums;
 using B2B.Infrastructure.Persistence;
@@ -25,11 +26,8 @@ public sealed class OrdersController : ControllerBase
         _db = db;
     }
 
-    public sealed record SubmitOrderItem(Guid ProductId, int Quantity);
-    public sealed record SubmitOrderRequest(Guid SellerUserId, string CurrencyCode, IReadOnlyList<SubmitOrderItem> Items);
-    public sealed record SubmitOrderResponse(Guid OrderId, long OrderNumber, decimal GrandTotal);
-
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.DealerOnly)]
     public async Task<ActionResult<ApiResponse<SubmitOrderResponse>>> Submit(SubmitOrderRequest request, CancellationToken ct)
     {
         var buyerUserIdStr =
@@ -41,11 +39,6 @@ public sealed class OrdersController : ControllerBase
                 new ApiError("unauthorized", "Missing user identity.", null),
                 HttpContext.TraceId()
             ));
-        }
-
-        if (!User.IsInRole("Dealer"))
-        {
-            return Forbid();
         }
 
         if (request.Items.Count == 0)
@@ -246,39 +239,9 @@ public sealed class OrdersController : ControllerBase
             };
     }
 
-    public sealed record OrderListItemDto(
-        Guid OrderId,
-        long OrderNumber,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal GrandTotal,
-        OrderStatus Status,
-        DateTime CreatedAtUtc
-    );
-
-    public sealed record DealerOrderLineDto(
-        int LineNumber,
-        string ProductSku,
-        string ProductName,
-        decimal UnitPrice,
-        int Quantity);
-
-    public sealed record DealerOrderDetailDto(
-        Guid OrderId,
-        long OrderNumber,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal Subtotal,
-        decimal GrandTotal,
-        OrderStatus Status,
-        DateTime CreatedAtUtc,
-        DateTime? UpdatedAtUtc,
-        IReadOnlyList<DealerOrderLineDto> Items);
-
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<PagedResult<OrderListItemDto>>>> List([FromQuery] PageRequest page, CancellationToken ct)
+    [Authorize(Policy = AuthorizationPolicies.DealerOnly)]
+    public async Task<ActionResult<ApiResponse<PagedResult<DealerOrderListItem>>>> List([FromQuery] PageRequest page, CancellationToken ct)
     {
         page = page.Normalize();
 
@@ -287,15 +250,10 @@ public sealed class OrdersController : ControllerBase
             User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(buyerUserIdStr, out var buyerUserId))
         {
-            return Unauthorized(ApiResponse<PagedResult<OrderListItemDto>>.Fail(
+            return Unauthorized(ApiResponse<PagedResult<DealerOrderListItem>>.Fail(
                 new ApiError("unauthorized", "Missing user identity.", null),
                 HttpContext.TraceId()
             ));
-        }
-
-        if (!User.IsInRole("Dealer"))
-        {
-            return Forbid();
         }
 
         var query =
@@ -309,7 +267,7 @@ public sealed class OrdersController : ControllerBase
         var items = await query
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(x => new OrderListItemDto(
+            .Select(x => new DealerOrderListItem(
                 x.o.OrderId,
                 x.o.OrderNumber,
                 x.o.SellerUserId,
@@ -320,28 +278,24 @@ public sealed class OrdersController : ControllerBase
                 x.o.CreatedAtUtc))
             .ToListAsync(ct);
 
-        var result = new PagedResult<OrderListItemDto>(items, new PageMeta(page.Page, page.PageSize, items.Count, total));
+        var result = new PagedResult<DealerOrderListItem>(items, new PageMeta(page.Page, page.PageSize, items.Count, total));
 
-        return Ok(ApiResponse<PagedResult<OrderListItemDto>>.Ok(result, HttpContext.TraceId()));
+        return Ok(ApiResponse<PagedResult<DealerOrderListItem>>.Ok(result, HttpContext.TraceId()));
     }
 
     /// <summary>Bayi: yalnızca kendi siparişinin kalemlerini ve durumunu döner.</summary>
     [HttpGet("{orderId:guid}")]
-    public async Task<ActionResult<ApiResponse<DealerOrderDetailDto>>> GetMyOrder(Guid orderId, CancellationToken ct)
+    [Authorize(Policy = AuthorizationPolicies.DealerOnly)]
+    public async Task<ActionResult<ApiResponse<DealerOrderDetail>>> GetMyOrder(Guid orderId, CancellationToken ct)
     {
         var buyerUserIdStr =
             User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
             User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(buyerUserIdStr, out var buyerUserId))
         {
-            return Unauthorized(ApiResponse<DealerOrderDetailDto>.Fail(
+            return Unauthorized(ApiResponse<DealerOrderDetail>.Fail(
                 new ApiError("unauthorized", "Missing user identity.", null),
                 HttpContext.TraceId()));
-        }
-
-        if (!User.IsInRole("Dealer"))
-        {
-            return Forbid();
         }
 
         var row = await (
@@ -353,7 +307,7 @@ public sealed class OrdersController : ControllerBase
 
         if (row is null)
         {
-            return NotFound(ApiResponse<DealerOrderDetailDto>.Fail(
+            return NotFound(ApiResponse<DealerOrderDetail>.Fail(
                 new ApiError("not_found", "Sipariş bulunamadı.", null),
                 HttpContext.TraceId()));
         }
@@ -361,7 +315,7 @@ public sealed class OrdersController : ControllerBase
         var lines = await _db.OrderItems.AsNoTracking()
             .Where(i => i.OrderId == orderId)
             .OrderBy(i => i.LineNumber)
-            .Select(i => new DealerOrderLineDto(
+            .Select(i => new DealerOrderLine(
                 i.LineNumber,
                 i.ProductSku,
                 i.ProductName,
@@ -369,7 +323,7 @@ public sealed class OrdersController : ControllerBase
                 i.Quantity))
             .ToListAsync(ct);
 
-        var dto = new DealerOrderDetailDto(
+        var dto = new DealerOrderDetail(
             row.o.OrderId,
             row.o.OrderNumber,
             row.o.SellerUserId,
@@ -382,13 +336,11 @@ public sealed class OrdersController : ControllerBase
             row.o.UpdatedAtUtc,
             lines);
 
-        return Ok(ApiResponse<DealerOrderDetailDto>.Ok(dto, HttpContext.TraceId()));
+        return Ok(ApiResponse<DealerOrderDetail>.Ok(dto, HttpContext.TraceId()));
     }
 
-    public sealed record UpdateOrderStatusRequest(OrderStatus Status);
-
     [HttpPatch("{orderId:guid}/status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<ApiResponse<object>>> UpdateStatus(Guid orderId, [FromBody] UpdateOrderStatusRequest req, CancellationToken ct)
     {
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
@@ -421,6 +373,7 @@ public sealed class OrdersController : ControllerBase
     }
 
     [HttpPost("{orderId:guid}/cancel")]
+    [Authorize(Policy = AuthorizationPolicies.DealerOnly)]
     public async Task<ActionResult<ApiResponse<object>>> Cancel(Guid orderId, CancellationToken ct)
     {
         var buyerUserIdStr =
@@ -432,11 +385,6 @@ public sealed class OrdersController : ControllerBase
                 new ApiError("unauthorized", "Missing user identity.", null),
                 HttpContext.TraceId()
             ));
-        }
-
-        if (!User.IsInRole("Dealer"))
-        {
-            return Forbid();
         }
 
         var strategy = _db.Database.CreateExecutionStrategy();

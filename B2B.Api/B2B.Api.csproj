@@ -15,6 +15,7 @@
     <PackageReference Include="FluentValidation.AspNetCore">
       <Version>11.3.1</Version>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.6">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -40,6 +41,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\B2B.Application\B2B.Application.csproj" />
+    <ProjectReference Include="..\B2B.Contracts\B2B.Contracts.csproj" />
     <ProjectReference Include="..\B2B.Infrastructure\B2B.Infrastructure.csproj" />
   </ItemGroup>
 

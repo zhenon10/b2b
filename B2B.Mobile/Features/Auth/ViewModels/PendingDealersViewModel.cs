@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
-using B2B.Mobile.Features.Auth.Models;
+using B2B.Contracts;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Auth.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +15,7 @@ public partial class PendingDealersViewModel : ObservableObject
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
 
     public PendingDealersViewModel(AdminUsersService adminUsers) => _adminUsers = adminUsers;
 
@@ -29,12 +31,14 @@ public partial class PendingDealersViewModel : ObservableObject
     {
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _adminUsers.GetPendingDealersAsync(CancellationToken.None);
             if (!resp.Success || resp.Data is null)
             {
-                Error = resp.Error?.Message ?? "Liste yüklenemedi.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Liste yüklenemedi.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 Items.Clear();
                 return;
             }
@@ -63,12 +67,15 @@ public partial class PendingDealersViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
-            var resp = await _adminUsers.ApproveDealerAsync(item.UserId, CancellationToken.None);
+            var idempotencyKey = Guid.NewGuid().ToString("N");
+            var resp = await _adminUsers.ApproveDealerAsync(item.UserId, idempotencyKey, CancellationToken.None);
             if (!resp.Success)
             {
-                Error = resp.Error?.Message ?? "Onay başarısız.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Onay başarısız.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 

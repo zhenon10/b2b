@@ -17,7 +17,7 @@ public static class PublicAssetUrlRewriter
         if (string.IsNullOrWhiteSpace(storedUrl))
             return storedUrl;
 
-        var opts = request.HttpContext.RequestServices.GetService<IOptions<PublicAssetUrlOptions>>()?.Value;
+        var opts = request.HttpContext.RequestServices?.GetService<IOptions<PublicAssetUrlOptions>>()?.Value;
 
         var trimmed = storedUrl.Trim();
 

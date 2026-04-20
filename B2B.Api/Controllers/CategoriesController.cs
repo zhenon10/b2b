@@ -1,5 +1,6 @@
-using B2B.Api.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Contracts;
+using B2B.Api.Security;
 using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -19,15 +20,9 @@ public sealed class CategoriesController : ControllerBase
         _db = db;
     }
 
-    public sealed record CategoryListItemDto(Guid CategoryId, string Name, int SortOrder, bool IsActive);
-
-    public sealed record CreateCategoryRequest(string Name, int SortOrder = 0, bool IsActive = true);
-
-    public sealed record UpdateCategoryRequest(string Name, int SortOrder, bool IsActive);
-
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CategoryListItemDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<CategoryListItemDto>>>> List(
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CategoryListItem>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<CategoryListItem>>>> List(
         [FromQuery] bool includeInactive = false,
         CancellationToken ct = default)
     {
@@ -38,22 +33,22 @@ public sealed class CategoriesController : ControllerBase
         var items = await q
             .OrderBy(c => c.SortOrder)
             .ThenBy(c => c.Name)
-            .Select(c => new CategoryListItemDto(c.CategoryId, c.Name, c.SortOrder, c.IsActive))
+            .Select(c => new CategoryListItem(c.CategoryId, c.Name, c.SortOrder, c.IsActive))
             .ToListAsync(ct);
 
-        return Ok(ApiResponse<IReadOnlyList<CategoryListItemDto>>.Ok(items, HttpContext.TraceId()));
+        return Ok(ApiResponse<IReadOnlyList<CategoryListItem>>.Ok(items, HttpContext.TraceId()));
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<CategoryListItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<CategoryListItemDto>>> Create([FromBody] CreateCategoryRequest req, CancellationToken ct)
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [ProducesResponseType(typeof(ApiResponse<CategoryListItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<CategoryListItem>>> Create([FromBody] CreateCategoryRequest req, CancellationToken ct)
     {
         var name = req.Name.Trim();
         var exists = await _db.Categories.AnyAsync(c => c.Name == name, ct);
         if (exists)
         {
-            return Conflict(ApiResponse<CategoryListItemDto>.Fail(
+            return Conflict(ApiResponse<CategoryListItem>.Fail(
                 new ApiError("name_taken", "Bu isimde bir kategori zaten var.", null),
                 HttpContext.TraceId()));
         }
@@ -69,14 +64,14 @@ public sealed class CategoriesController : ControllerBase
         _db.Categories.Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        var dto = new CategoryListItemDto(entity.CategoryId, entity.Name, entity.SortOrder, entity.IsActive);
-        return Ok(ApiResponse<CategoryListItemDto>.Ok(dto, HttpContext.TraceId()));
+        var dto = new CategoryListItem(entity.CategoryId, entity.Name, entity.SortOrder, entity.IsActive);
+        return Ok(ApiResponse<CategoryListItem>.Ok(dto, HttpContext.TraceId()));
     }
 
     [HttpPut("{categoryId:guid}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<CategoryListItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<CategoryListItemDto>>> Update(
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [ProducesResponseType(typeof(ApiResponse<CategoryListItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<CategoryListItem>>> Update(
         Guid categoryId,
         [FromBody] UpdateCategoryRequest req,
         CancellationToken ct = default)
@@ -84,7 +79,7 @@ public sealed class CategoriesController : ControllerBase
         var entity = await _db.Categories.FirstOrDefaultAsync(c => c.CategoryId == categoryId, ct);
         if (entity is null)
         {
-            return NotFound(ApiResponse<CategoryListItemDto>.Fail(
+            return NotFound(ApiResponse<CategoryListItem>.Fail(
                 new ApiError("not_found", "Kategori bulunamadı.", null),
                 HttpContext.TraceId()));
         }
@@ -93,7 +88,7 @@ public sealed class CategoriesController : ControllerBase
         var nameTaken = await _db.Categories.AnyAsync(c => c.CategoryId != categoryId && c.Name == name, ct);
         if (nameTaken)
         {
-            return Conflict(ApiResponse<CategoryListItemDto>.Fail(
+            return Conflict(ApiResponse<CategoryListItem>.Fail(
                 new ApiError("name_taken", "Bu isimde bir kategori zaten var.", null),
                 HttpContext.TraceId()));
         }
@@ -103,12 +98,12 @@ public sealed class CategoriesController : ControllerBase
         entity.IsActive = req.IsActive;
         await _db.SaveChangesAsync(ct);
 
-        var dto = new CategoryListItemDto(entity.CategoryId, entity.Name, entity.SortOrder, entity.IsActive);
-        return Ok(ApiResponse<CategoryListItemDto>.Ok(dto, HttpContext.TraceId()));
+        var dto = new CategoryListItem(entity.CategoryId, entity.Name, entity.SortOrder, entity.IsActive);
+        return Ok(ApiResponse<CategoryListItem>.Ok(dto, HttpContext.TraceId()));
     }
 
     [HttpDelete("{categoryId:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid categoryId, CancellationToken ct)
     {

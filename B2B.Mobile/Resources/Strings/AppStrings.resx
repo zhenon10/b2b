@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Resources.Extensions, Version=10.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Resources.Extensions, Version=10.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</value>
+  </resheader>
+  <data name="Common_CopySupportCode" xml:space="preserve"><value>Destek kodunu kopyala</value></data>
+  <data name="Common_CopySupportCodeHint" xml:space="preserve"><value>Destek ekibine iletmek için izleme kodunu panoya kopyalar</value></data>
+  <data name="Connectivity_OfflineMessage" xml:space="preserve"><value>İnternet bağlantısı yok. İstekler başarısız olabilir.</value></data>
+  <data name="Connectivity_ConstrainedMessage" xml:space="preserve"><value>Sınırlı ağ bağlantısı (düşük bant genişliği).</value></data>
+  <data name="Login_PageTitle" xml:space="preserve"><value>Giriş</value></data>
+  <data name="Login_WelcomeTitle" xml:space="preserve"><value>Tekrar hoş geldiniz</value></data>
+  <data name="Login_WelcomeSubtitle" xml:space="preserve"><value>Devam etmek için giriş yapın.</value></data>
+  <data name="Login_EmailPlaceholder" xml:space="preserve"><value>E-posta</value></data>
+  <data name="Login_EmailHint" xml:space="preserve"><value>Giriş için e-posta adresiniz</value></data>
+  <data name="Login_PasswordPlaceholder" xml:space="preserve"><value>Şifre</value></data>
+  <data name="Login_PasswordHint" xml:space="preserve"><value>Hesap şifreniz</value></data>
+  <data name="Login_RememberMeLabel" xml:space="preserve"><value>Beni hatırla</value></data>
+  <data name="Login_RememberMeHint" xml:space="preserve"><value>Bu cihazda e-postayı hatırla</value></data>
+  <data name="Login_Submit" xml:space="preserve"><value>Giriş yap</value></data>
+  <data name="Login_SubmitHint" xml:space="preserve"><value>Kimlik bilgilerinizle oturum açar</value></data>
+  <data name="Login_Register" xml:space="preserve"><value>Hesap oluştur</value></data>
+  <data name="Login_RegisterHint" xml:space="preserve"><value>Yeni bayi hesabı için kayıt sayfasına gider</value></data>
+  <data name="Register_PageTitle" xml:space="preserve"><value>Kayıt</value></data>
+  <data name="Register_Headline" xml:space="preserve"><value>Hesap oluştur</value></data>
+  <data name="Register_Subtitle" xml:space="preserve"><value>Sipariş vermeye başlamak için kayıt olun.</value></data>
+  <data name="Register_DisplayNamePlaceholder" xml:space="preserve"><value>Görünen ad</value></data>
+  <data name="Register_EmailPlaceholder" xml:space="preserve"><value>E-posta</value></data>
+  <data name="Register_PasswordPlaceholder" xml:space="preserve"><value>Şifre</value></data>
+  <data name="Register_PasswordRules" xml:space="preserve"><value>Şifre: en az 8 karakter; büyük ve küçük harf, rakam ve sembol (!@# vb.) zorunlu.</value></data>
+  <data name="Register_Submit" xml:space="preserve"><value>Kayıt ol</value></data>
+  <data name="Register_SubmitHint" xml:space="preserve"><value>Yeni hesap oluşturur</value></data>
+  <data name="Register_GoLogin" xml:space="preserve"><value>Giriş sayfasına git</value></data>
+  <data name="Register_GoLoginHint" xml:space="preserve"><value>Giriş ekranına döner</value></data>
+  <data name="Cart_PageTitle" xml:space="preserve"><value>Sepet</value></data>
+  <data name="Cart_EmptyTitle" xml:space="preserve"><value>Sepetiniz boş</value></data>
+  <data name="Cart_EmptySubtitle" xml:space="preserve"><value>Sipariş vermek için ürün ekleyin.</value></data>
+  <data name="Cart_RemoveLine" xml:space="preserve"><value>Kaldır</value></data>
+  <data name="Cart_RemoveLineHint" xml:space="preserve"><value>Bu satırı sepetten kaldırır</value></data>
+  <data name="Cart_TotalCaption" xml:space="preserve"><value>Toplam</value></data>
+  <data name="Cart_Clear" xml:space="preserve"><value>Temizle</value></data>
+  <data name="Cart_ClearHint" xml:space="preserve"><value>Sepetteki tüm ürünleri siler</value></data>
+  <data name="Cart_Checkout" xml:space="preserve"><value>Siparişe geç</value></data>
+  <data name="Cart_CheckoutHint" xml:space="preserve"><value>Sipariş adımına geçer</value></data>
+  <data name="Product_SearchPlaceholder" xml:space="preserve"><value>Ürün ara (ad veya SKU)</value></data>
+  <data name="Product_SearchHint" xml:space="preserve"><value>Ürün adı veya stok kodu ile arama</value></data>
+  <data name="Products_ScanHint" xml:space="preserve"><value>Barkod ile ürün tara</value></data>
+  <data name="Profile_PageTitle" xml:space="preserve"><value>Profil</value></data>
+  <data name="Profile_AccountSection" xml:space="preserve"><value>Hesap bilgileri</value></data>
+  <data name="Profile_EmailCaption" xml:space="preserve"><value>E-posta</value></data>
+  <data name="Profile_DisplayNameCaption" xml:space="preserve"><value>Görünen ad</value></data>
+  <data name="Profile_RolesCaption" xml:space="preserve"><value>Roller</value></data>
+  <data name="Profile_StatusCaption" xml:space="preserve"><value>Durum</value></data>
+  <data name="Profile_ResumeLockSection" xml:space="preserve"><value>Uygulama kilidi</value></data>
+  <data name="Profile_ResumeLockHint" xml:space="preserve"><value>Arka plandan döndüğünüzde PIN ile doğrulama (SecureStorage).</value></data>
+  <data name="Profile_ResumeLockSwitch" xml:space="preserve"><value>Kilidi etkinleştir</value></data>
+  <data name="Profile_PinPlaceholder" xml:space="preserve"><value>PIN (4-8 karakter)</value></data>
+  <data name="Profile_PinHint" xml:space="preserve"><value>Uygulama kilidi için sayısal PIN</value></data>
+  <data name="Profile_SaveLockSettings" xml:space="preserve"><value>Kilit ayarını kaydet</value></data>
+  <data name="Profile_SaveLockSettingsHint" xml:space="preserve"><value>PIN ve kilit tercihini kaydeder</value></data>
+  <data name="Profile_ChangePasswordSection" xml:space="preserve"><value>Şifre değiştir</value></data>
+  <data name="Profile_CurrentPasswordPlaceholder" xml:space="preserve"><value>Mevcut şifre</value></data>
+  <data name="Profile_NewPasswordPlaceholder" xml:space="preserve"><value>Yeni şifre (en az 8 karakter)</value></data>
+  <data name="Profile_ConfirmPasswordPlaceholder" xml:space="preserve"><value>Yeni şifre (tekrar)</value></data>
+  <data name="Profile_UpdatePassword" xml:space="preserve"><value>Şifreyi güncelle</value></data>
+  <data name="Profile_UpdatePasswordHint" xml:space="preserve"><value>Hesap şifresini değiştirir</value></data>
+  <data name="Profile_OpenSettings" xml:space="preserve"><value>Bağlantı ve API adresi</value></data>
+  <data name="Profile_OpenSettingsHint" xml:space="preserve"><value>Sunucu adresi ve bağlantı ayarları</value></data>
+  <data name="Profile_Logout" xml:space="preserve"><value>Çıkış yap</value></data>
+  <data name="Profile_LogoutHint" xml:space="preserve"><value>Oturumu kapatır</value></data>
+  <data name="ProductDetail_PageTitle" xml:space="preserve"><value>Ürün</value></data>
+  <data name="ProductDetail_QuantityLabel" xml:space="preserve"><value>Adet</value></data>
+  <data name="ProductDetail_DecreaseQtyHint" xml:space="preserve"><value>Adedi bir azaltır</value></data>
+  <data name="ProductDetail_IncreaseQtyHint" xml:space="preserve"><value>Adedi bir artırır</value></data>
+  <data name="ProductDetail_QuantityEntryHint" xml:space="preserve"><value>Sepete eklenecek ürün adedi</value></data>
+  <data name="ProductDetail_AddToCart" xml:space="preserve"><value>Sepete ekle</value></data>
+  <data name="ProductDetail_AddToCartHint" xml:space="preserve"><value>Seçilen adetle sepete ekler</value></data>
+  <data name="ProductDetail_ClosePreviewHint" xml:space="preserve"><value>Tam ekran görsel önizlemesini kapatır</value></data>
+  <data name="ProductDetail_ImageCarouselHint" xml:space="preserve"><value>Ürün görselleri; dokunarak büyütür</value></data>
+</root>

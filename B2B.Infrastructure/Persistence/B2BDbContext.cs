@@ -20,6 +20,8 @@ public sealed class B2BDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderSubmission> OrderSubmissions => Set<OrderSubmission>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AdminDealerApprovalIdempotency> AdminDealerApprovalIdempotencies => Set<AdminDealerApprovalIdempotency>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -275,6 +277,38 @@ public sealed class B2BDbContext : DbContext
 
             b.HasIndex(x => x.OrderId)
                 .HasDatabaseName("IX_OrderSubmissions_OrderId");
+        });
+
+        modelBuilder.Entity<RefreshToken>(b =>
+        {
+            b.ToTable("RefreshTokens");
+            b.HasKey(x => x.RefreshTokenId);
+
+            b.Property(x => x.TokenHash).HasMaxLength(32).IsFixedLength().IsRequired();
+            b.Property(x => x.ExpiresAtUtc).IsRequired();
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.User)
+                .WithMany(x => x.RefreshTokens)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("UX_RefreshTokens_TokenHash");
+            b.HasIndex(x => new { x.UserId, x.RevokedAtUtc, x.ExpiresAtUtc })
+                .HasDatabaseName("IX_RefreshTokens_User_Active");
+        });
+
+        modelBuilder.Entity<AdminDealerApprovalIdempotency>(b =>
+        {
+            b.ToTable("AdminDealerApprovalIdempotencies");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.IdempotencyKey).HasMaxLength(128).IsRequired();
+            b.Property(x => x.ApprovedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.AdminUserId, x.IdempotencyKey })
+                .IsUnique()
+                .HasDatabaseName("UX_AdminDealerApproval_Admin_Key");
         });
 
         base.OnModelCreating(modelBuilder);

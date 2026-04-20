@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using B2B.Contracts;
+using B2B.Domain.Enums;
 
 namespace B2B.Admin.Services;
 
@@ -14,96 +16,26 @@ public sealed class B2BApiClient
         _session = session;
     }
 
-    public sealed record LoginRequest(string Email, string Password);
-    public sealed record LoginResponse(string AccessToken);
-
-    public sealed record ProductListItem(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        string? PrimaryImageUrl,
-        string Sku,
-        string Name,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive
-    );
-
-    public sealed record ProductImage(string Url, int SortOrder, bool IsPrimary);
-    public sealed record ProductSpec(string Key, string Value, int SortOrder);
-
-    public sealed record ProductDetail(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        IReadOnlyList<ProductImage> Images,
-        IReadOnlyList<ProductSpec> Specs,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive
-    );
-
-    public sealed record CreateProductRequest(
-        Guid? SellerUserId,
-        Guid? CategoryId,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImage>? Images,
-        IReadOnlyList<ProductSpec>? Specs,
-        bool IsActive
-    );
-
-    public sealed record UpdateProductRequest(
-        string Sku,
-        string Name,
-        string? Description,
-        Guid? CategoryId,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImage>? Images,
-        IReadOnlyList<ProductSpec>? Specs,
-        bool IsActive
-    );
-
-    public sealed record CategoryListItem(Guid CategoryId, string Name, int SortOrder, bool IsActive);
-    public sealed record CreateCategoryRequest(string Name, int SortOrder = 0, bool IsActive = true);
-    public sealed record UpdateCategoryRequest(string Name, int SortOrder, bool IsActive);
-
-    public async Task<ApiResponse<LoginResponse>> LoginAsync(string email, string password, CancellationToken ct = default)
+    public async Task<ApiResponse<AuthResponse>> LoginAsync(string email, string password, CancellationToken ct = default)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, password), ct);
-            var payload = await resp.Content.ReadFromJsonAsync<ApiResponse<LoginResponse>>(cancellationToken: ct)
-                          ?? new ApiResponse<LoginResponse>(false, null, new ApiError("invalid_response", "Empty response."), "");
+            var payload = await resp.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>(cancellationToken: ct)
+                          ?? new ApiResponse<AuthResponse>(false, null, new ApiError("invalid_response", "Empty response."), "");
 
             if (payload.Success && payload.Data is not null)
+            {
                 await _session.SetAccessTokenAsync(payload.Data.AccessToken);
+                await _session.SetRefreshTokenAsync(payload.Data.RefreshToken);
+            }
 
             return payload;
         }
         catch (Exception ex)
         {
             var baseUrl = _http.BaseAddress?.ToString() ?? "(no base address)";
-            return new ApiResponse<LoginResponse>(
+            return new ApiResponse<AuthResponse>(
                 false,
                 null,
                 new ApiError("network_error", $"Failed to reach API at {baseUrl}. {ex.Message}"),
@@ -181,9 +113,6 @@ public sealed class B2BApiClient
                ?? new ApiResponse<object>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
 
-    public sealed record UpdateStockRequest(int StockQuantity);
-    public sealed record UpdateActiveRequest(bool IsActive);
-
     public async Task<ApiResponse<object>> UpdateProductStockAsync(Guid productId, int stockQuantity, CancellationToken ct = default)
     {
         await ApplyAuthAsync();
@@ -223,8 +152,6 @@ public sealed class B2BApiClient
                ?? new ApiResponse<ProductDetail>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
 
-    public sealed record PendingDealerDto(Guid UserId, string Email, string? DisplayName, DateTime CreatedAtUtc);
-
     public async Task<ApiResponse<IReadOnlyList<PendingDealerDto>>> GetPendingDealersAsync(CancellationToken ct = default)
     {
         await ApplyAuthAsync();
@@ -235,46 +162,12 @@ public sealed class B2BApiClient
     public async Task<ApiResponse<object>> ApproveDealerAsync(Guid userId, CancellationToken ct = default)
     {
         await ApplyAuthAsync();
-        var resp = await _http.PostAsync($"/api/v1/admin/users/{userId}/approve", content: null, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/admin/users/{userId}/approve");
+        req.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var resp = await _http.SendAsync(req, ct);
         return await resp.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: ct)
                ?? new ApiResponse<object>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
-
-    public sealed record AdminOrderListItem(
-        Guid OrderId,
-        long OrderNumber,
-        Guid BuyerUserId,
-        string BuyerEmail,
-        string? BuyerDisplayName,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal GrandTotal,
-        int Status,
-        DateTime CreatedAtUtc);
-
-    public sealed record AdminOrderLine(
-        int LineNumber,
-        string ProductSku,
-        string ProductName,
-        decimal UnitPrice,
-        int Quantity);
-
-    public sealed record AdminOrderDetail(
-        Guid OrderId,
-        long OrderNumber,
-        Guid BuyerUserId,
-        string BuyerEmail,
-        string? BuyerDisplayName,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal Subtotal,
-        decimal GrandTotal,
-        int Status,
-        DateTime CreatedAtUtc,
-        DateTime? UpdatedAtUtc,
-        IReadOnlyList<AdminOrderLine> Items);
 
     public async Task<ApiResponse<PagedResult<AdminOrderListItem>>> GetAdminOrdersAsync(
         int page = 1,
@@ -300,22 +193,13 @@ public sealed class B2BApiClient
     public async Task<ApiResponse<object>> UpdateOrderStatusAsync(Guid orderId, int status, CancellationToken ct = default)
     {
         await ApplyAuthAsync();
-        var resp = await _http.PatchAsJsonAsync($"/api/v1/orders/{orderId}/status", new { status }, ct);
+        var resp = await _http.PatchAsJsonAsync(
+            $"/api/v1/orders/{orderId}/status",
+            new UpdateOrderStatusRequest((OrderStatus)status),
+            ct);
         return await resp.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: ct)
                ?? new ApiResponse<object>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
-
-    public sealed record BrokenProductImage(Guid ProductImageId, Guid ProductId, string Url);
-
-    public sealed record ReconcileProductImagesResponse(
-        bool DryRun,
-        string WebRoot,
-        string UploadsRoot,
-        int TotalImages,
-        int BrokenCount,
-        int DeletedCount,
-        IReadOnlyList<BrokenProductImage> Broken
-    );
 
     public async Task<ApiResponse<ReconcileProductImagesResponse>> ReconcileProductImagesAsync(bool dryRun = true, CancellationToken ct = default)
     {
@@ -337,4 +221,3 @@ public sealed class B2BApiClient
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
-

@@ -1,4 +1,6 @@
-namespace B2B.Mobile.Features.Orders.Models;
+using B2B.Domain.Enums;
+
+namespace B2B.Contracts;
 
 public sealed record AdminOrderListItem(
     Guid OrderId,
@@ -10,7 +12,7 @@ public sealed record AdminOrderListItem(
     string? SellerDisplayName,
     string CurrencyCode,
     decimal GrandTotal,
-    int Status,
+    OrderStatus Status,
     DateTime CreatedAtUtc);
 
 public sealed record AdminOrderLine(
@@ -31,7 +33,7 @@ public sealed record AdminOrderDetail(
     string CurrencyCode,
     decimal Subtotal,
     decimal GrandTotal,
-    int Status,
+    OrderStatus Status,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
     IReadOnlyList<AdminOrderLine> Items);

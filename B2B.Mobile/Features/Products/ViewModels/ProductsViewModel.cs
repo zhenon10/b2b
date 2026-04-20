@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
 using B2B.Mobile.Features.Cart.Models;
 using B2B.Mobile.Features.Cart.Services;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Storage;
@@ -23,7 +26,9 @@ public partial class ProductsViewModel : ObservableObject
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool isRefreshing;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
     [ObservableProperty] private string? query;
+    [ObservableProperty] private string? scanFilterCode;
     [ObservableProperty] private bool canManageProducts;
     /// <summary>Yalnızca admin; açıkken pasif ürünler de listelenir (<c>isActive</c> filtresi kalkar).</summary>
     [ObservableProperty] private bool includeInactiveProducts;
@@ -45,6 +50,8 @@ public partial class ProductsViewModel : ObservableObject
 
     private const int SearchDebounceMs = 450;
 
+    public bool ShowSkeleton => IsBusy && Items.Count == 0 && string.IsNullOrWhiteSpace(Error);
+
     public ProductsViewModel(ProductsService products, IAuthSession authSession, ProductCatalogFilter catalogFilter, CartService cart)
     {
         _products = products;
@@ -54,6 +61,7 @@ public partial class ProductsViewModel : ObservableObject
         var saved = Preferences.Default.Get(PrefCatalogColumnsKey, 2);
         CatalogColumns = saved == 1 ? 1 : 2;
         _ = RefreshRolesAsync();
+        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowSkeleton));
     }
 
     public void NotifyFilterSummaryChanged() => OnPropertyChanged(nameof(FilterSummary));
@@ -77,11 +85,29 @@ public partial class ProductsViewModel : ObservableObject
     partial void OnQueryChanged(string? value)
     {
         if (_suppressQueryRefresh) return;
+
+        // Kullanıcı manuel aramaya geçtiyse barkod filtresi bilgisini kaldır.
+        if (!string.IsNullOrWhiteSpace(ScanFilterCode) && !string.Equals(value?.Trim(), ScanFilterCode, StringComparison.OrdinalIgnoreCase))
+            ScanFilterCode = null;
+
         ScheduleDebouncedRefresh();
     }
 
     partial void OnIncludeInactiveProductsChanged(bool value) =>
         _ = RefreshAsync();
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(ShowSkeleton));
+    partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(ShowSkeleton));
+
+    [RelayCommand]
+    private async Task ClearScanFilterAsync()
+    {
+        ScanFilterCode = null;
+        _suppressQueryRefresh = true;
+        Query = null;
+        _suppressQueryRefresh = false;
+        await RefreshAsync();
+    }
 
     private void CancelSearchDebounce()
     {
@@ -156,6 +182,7 @@ public partial class ProductsViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
 
         try
         {
@@ -174,6 +201,7 @@ public partial class ProductsViewModel : ObservableObject
             if (!resp.Success || resp.Data is null)
             {
                 Error = FormatProductListError(resp.Error);
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 UpdateEmptyMessagingAfterFailedLoad();
                 return;
             }
@@ -271,6 +299,22 @@ public partial class ProductsViewModel : ObservableObject
             item.CurrencyCode,
             item.DealerPrice,
             1));
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            var snack = Snackbar.Make(
+                "Sepete eklendi",
+                async () => await Shell.Current.GoToAsync("//main/cart"),
+                "Sepete git",
+                TimeSpan.FromSeconds(3),
+                new SnackbarOptions
+                {
+                    BackgroundColor = Color.FromArgb("#1F1F1F"),
+                    TextColor = Colors.White,
+                    ActionButtonTextColor = Color.FromArgb("#AC99EA")
+                });
+            await snack.Show();
+        });
     }
 
     private static Task AlertAsync(string title, string message)
@@ -293,6 +337,8 @@ public partial class ProductsViewModel : ObservableObject
     {
         var trimmed = code.Trim();
         if (string.IsNullOrWhiteSpace(trimmed)) return;
+
+        ScanFilterCode = trimmed;
 
         IsBusy = true;
         Error = null;

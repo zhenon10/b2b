@@ -10,13 +10,26 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddScoped<ProtectedSessionStorage>();
 builder.Services.AddScoped<AuthSession>();
+builder.Services.AddScoped<AdminUiNotify>();
+builder.Services.AddScoped<AdminAuthRefreshHandler>();
 
-builder.Services.AddHttpClient<B2BApiClient>((sp, http) =>
+builder.Services.AddHttpClient("apiInternal", (sp, http) =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var baseUrl = config["Api:BaseUrl"] ?? "http://localhost:5000";
     http.BaseAddress = new Uri(baseUrl);
+    http.Timeout = TimeSpan.FromSeconds(60);
 });
+
+builder.Services.AddHttpClient<B2BApiClient>()
+    .ConfigureHttpClient((sp, http) =>
+    {
+        var config = sp.GetRequiredService<IConfiguration>();
+        var baseUrl = config["Api:BaseUrl"] ?? "http://localhost:5000";
+        http.BaseAddress = new Uri(baseUrl);
+        http.Timeout = TimeSpan.FromSeconds(60);
+    })
+    .AddHttpMessageHandler<AdminAuthRefreshHandler>();
 
 var app = builder.Build();
 

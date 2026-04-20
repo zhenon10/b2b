@@ -1,4 +1,6 @@
+using B2B.Contracts;
 using B2B.Mobile.Core;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Products.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +19,7 @@ public partial class CategoryEditViewModel : ObservableObject
     [ObservableProperty] private bool isActive = true;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
 
     public CategoryEditViewModel(CategoriesService categories, CatalogNotifications catalogEvents)
     {
@@ -29,6 +32,7 @@ public partial class CategoryEditViewModel : ObservableObject
     private async Task LoadAsync()
     {
         Error = null;
+        ApiTraceId = null;
         if (string.IsNullOrWhiteSpace(CategoryIdQuery) || !Guid.TryParse(CategoryIdQuery, out var id))
         {
             PageTitle = "Yeni kategori";
@@ -46,7 +50,10 @@ public partial class CategoryEditViewModel : ObservableObject
             var item = resp.Data?.FirstOrDefault(x => x.CategoryId == id);
             if (item is null)
             {
-                Error = resp.Success ? "Kategori bulunamadı." : (resp.Error?.Message ?? "Yüklenemedi.");
+                Error = resp.Success
+                    ? "Kategori bulunamadı."
+                    : UserFacingApiMessage.Message(resp.Error, "Yüklenemedi.");
+                ApiTraceId = resp.Success || string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -73,16 +80,18 @@ public partial class CategoryEditViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             if (string.IsNullOrWhiteSpace(CategoryIdQuery) || !Guid.TryParse(CategoryIdQuery, out var id))
             {
                 var resp = await _categories.CreateCategoryAsync(
-                    new CategoriesService.CreateCategoryRequest(trimmed, SortOrder, IsActive),
+                    new CreateCategoryRequest(trimmed, SortOrder, IsActive),
                     CancellationToken.None);
                 if (!resp.Success)
                 {
-                    Error = resp.Error?.Message ?? "Kaydedilemedi.";
+                    Error = UserFacingApiMessage.Message(resp.Error, "Kaydedilemedi.");
+                    ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                     return;
                 }
             }
@@ -90,11 +99,12 @@ public partial class CategoryEditViewModel : ObservableObject
             {
                 var resp = await _categories.UpdateCategoryAsync(
                     id,
-                    new CategoriesService.UpdateCategoryRequest(trimmed, SortOrder, IsActive),
+                    new UpdateCategoryRequest(trimmed, SortOrder, IsActive),
                     CancellationToken.None);
                 if (!resp.Success)
                 {
-                    Error = resp.Error?.Message ?? "Kaydedilemedi.";
+                    Error = UserFacingApiMessage.Message(resp.Error, "Kaydedilemedi.");
+                    ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                     return;
                 }
             }

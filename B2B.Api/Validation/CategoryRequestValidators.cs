@@ -1,9 +1,9 @@
-using B2B.Api.Controllers;
+using B2B.Contracts;
 using FluentValidation;
 
 namespace B2B.Api.Validation;
 
-public sealed class CreateCategoryRequestValidator : AbstractValidator<CategoriesController.CreateCategoryRequest>
+public sealed class CreateCategoryRequestValidator : AbstractValidator<CreateCategoryRequest>
 {
     public CreateCategoryRequestValidator()
     {
@@ -12,7 +12,7 @@ public sealed class CreateCategoryRequestValidator : AbstractValidator<Categorie
     }
 }
 
-public sealed class UpdateCategoryRequestValidator : AbstractValidator<CategoriesController.UpdateCategoryRequest>
+public sealed class UpdateCategoryRequestValidator : AbstractValidator<UpdateCategoryRequest>
 {
     public UpdateCategoryRequestValidator()
     {

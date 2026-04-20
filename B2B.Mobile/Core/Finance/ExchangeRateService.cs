@@ -25,21 +25,53 @@ public sealed class ExchangeRateService
                 return hit2.Text;
 
             var client = _httpFactory.CreateClient("fx");
-            using var resp = await client.GetAsync("v1/latest?from=USD&to=TRY", ct).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            const int maxAttempts = 3;
+            HttpResponseMessage? resp = null;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    var r = await client.GetAsync("v1/latest?from=USD&to=TRY", ct).ConfigureAwait(false);
+                    if ((int)r.StatusCode >= 500 && attempt < maxAttempts)
+                    {
+                        r.Dispose();
+                        await Task.Delay(350 * (1 << (attempt - 1)), ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    resp = r;
+                    break;
+                }
+                catch (HttpRequestException) when (attempt < maxAttempts)
+                {
+                    await Task.Delay(350 * (1 << (attempt - 1)), ct).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException) when (attempt < maxAttempts && !ct.IsCancellationRequested)
+                {
+                    await Task.Delay(350 * (1 << (attempt - 1)), ct).ConfigureAwait(false);
+                }
+            }
+
+            if (resp is null)
                 return _cache?.Text ?? "—";
 
-            await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
-            if (!doc.RootElement.TryGetProperty("rates", out var rates) ||
-                !rates.TryGetProperty("TRY", out var tryEl))
-                return _cache?.Text ?? "—";
+            using (resp)
+            {
+                if (!resp.IsSuccessStatusCode)
+                    return _cache?.Text ?? "—";
 
-            var rate = tryEl.GetDecimal();
-            var tr = CultureInfo.GetCultureInfo("tr-TR");
-            var text = $"1 USD = {rate.ToString("N2", tr)} ₺";
-            _cache = (text, DateTime.UtcNow);
-            return text;
+                await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+                if (!doc.RootElement.TryGetProperty("rates", out var rates) ||
+                    !rates.TryGetProperty("TRY", out var tryEl))
+                    return _cache?.Text ?? "—";
+
+                var rate = tryEl.GetDecimal();
+                var tr = CultureInfo.GetCultureInfo("tr-TR");
+                var text = $"1 USD = {rate.ToString("N2", tr)} ₺";
+                _cache = (text, DateTime.UtcNow);
+                return text;
+            }
         }
         catch
         {

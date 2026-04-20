@@ -15,7 +15,11 @@ public sealed class CorrelationIdMiddleware : IMiddleware
         });
 
         using (context.RequestServices.GetRequiredService<ILogger<CorrelationIdMiddleware>>()
-                   .BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+                   .BeginScope(new Dictionary<string, object>
+                   {
+                       ["CorrelationId"] = correlationId,
+                       ["TraceId"] = context.TraceIdentifier
+                   }))
         {
             await next(context);
         }

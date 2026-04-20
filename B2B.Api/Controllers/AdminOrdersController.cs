@@ -1,5 +1,6 @@
-using B2B.Api.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Contracts;
+using B2B.Api.Security;
 using B2B.Domain.Enums;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -10,28 +11,15 @@ namespace B2B.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/admin/orders")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public sealed class AdminOrdersController : ControllerBase
 {
     private readonly B2BDbContext _db;
 
     public AdminOrdersController(B2BDbContext db) => _db = db;
 
-    public sealed record AdminOrderListItemDto(
-        Guid OrderId,
-        long OrderNumber,
-        Guid BuyerUserId,
-        string BuyerEmail,
-        string? BuyerDisplayName,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal GrandTotal,
-        OrderStatus Status,
-        DateTime CreatedAtUtc);
-
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<PagedResult<AdminOrderListItemDto>>>> List(
+    public async Task<ActionResult<ApiResponse<PagedResult<AdminOrderListItem>>>> List(
         [FromQuery] PageRequest page,
         [FromQuery] OrderStatus? status,
         CancellationToken ct)
@@ -53,7 +41,7 @@ public sealed class AdminOrdersController : ControllerBase
         var rows = await q
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(x => new AdminOrderListItemDto(
+            .Select(x => new AdminOrderListItem(
                 x.o.OrderId,
                 x.o.OrderNumber,
                 x.o.BuyerUserId,
@@ -67,38 +55,15 @@ public sealed class AdminOrdersController : ControllerBase
                 x.o.CreatedAtUtc))
             .ToListAsync(ct);
 
-        var result = new PagedResult<AdminOrderListItemDto>(
+        var result = new PagedResult<AdminOrderListItem>(
             rows,
             new PageMeta(page.Page, page.PageSize, rows.Count, total));
 
-        return Ok(ApiResponse<PagedResult<AdminOrderListItemDto>>.Ok(result, HttpContext.TraceId()));
+        return Ok(ApiResponse<PagedResult<AdminOrderListItem>>.Ok(result, HttpContext.TraceId()));
     }
 
-    public sealed record AdminOrderLineDto(
-        int LineNumber,
-        string ProductSku,
-        string ProductName,
-        decimal UnitPrice,
-        int Quantity);
-
-    public sealed record AdminOrderDetailDto(
-        Guid OrderId,
-        long OrderNumber,
-        Guid BuyerUserId,
-        string BuyerEmail,
-        string? BuyerDisplayName,
-        Guid SellerUserId,
-        string? SellerDisplayName,
-        string CurrencyCode,
-        decimal Subtotal,
-        decimal GrandTotal,
-        OrderStatus Status,
-        DateTime CreatedAtUtc,
-        DateTime? UpdatedAtUtc,
-        IReadOnlyList<AdminOrderLineDto> Items);
-
     [HttpGet("{orderId:guid}")]
-    public async Task<ActionResult<ApiResponse<AdminOrderDetailDto>>> Get(Guid orderId, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<AdminOrderDetail>>> Get(Guid orderId, CancellationToken ct)
     {
         var row = await (
             from o in _db.Orders.AsNoTracking()
@@ -110,7 +75,7 @@ public sealed class AdminOrdersController : ControllerBase
 
         if (row is null)
         {
-            return NotFound(ApiResponse<AdminOrderDetailDto>.Fail(
+            return NotFound(ApiResponse<AdminOrderDetail>.Fail(
                 new ApiError("not_found", "Sipariş bulunamadı.", null),
                 HttpContext.TraceId()));
         }
@@ -118,7 +83,7 @@ public sealed class AdminOrdersController : ControllerBase
         var lines = await _db.OrderItems.AsNoTracking()
             .Where(i => i.OrderId == orderId)
             .OrderBy(i => i.LineNumber)
-            .Select(i => new AdminOrderLineDto(
+            .Select(i => new AdminOrderLine(
                 i.LineNumber,
                 i.ProductSku,
                 i.ProductName,
@@ -126,7 +91,7 @@ public sealed class AdminOrdersController : ControllerBase
                 i.Quantity))
             .ToListAsync(ct);
 
-        var dto = new AdminOrderDetailDto(
+        var dto = new AdminOrderDetail(
             row.o.OrderId,
             row.o.OrderNumber,
             row.o.BuyerUserId,
@@ -142,6 +107,6 @@ public sealed class AdminOrdersController : ControllerBase
             row.o.UpdatedAtUtc,
             lines);
 
-        return Ok(ApiResponse<AdminOrderDetailDto>.Ok(dto, HttpContext.TraceId()));
+        return Ok(ApiResponse<AdminOrderDetail>.Ok(dto, HttpContext.TraceId()));
     }
 }

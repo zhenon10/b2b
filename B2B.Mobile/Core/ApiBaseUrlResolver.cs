@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Maui.Storage;
 
 namespace B2B.Mobile.Core;
 
@@ -6,14 +7,19 @@ namespace B2B.Mobile.Core;
 /// API kök adresi çözüm sırası:
 /// 1) Ortam <c>B2B_API_BASE</c>
 /// 2) Android manifest meta-data <c>B2B_API_BASE</c> (<c>b2b_api.xml</c>)
-/// 3) Yapılandırma <c>Api:BaseUrl</c> (appsettings + <c>B2B__Api__BaseUrl</c> ortam değişkeni)
-/// 4) DEBUG: sabit LAN varsayılanı; RELEASE: yapılandırma zorunlu
+/// 3) Uygulama tercihi <see cref="MobilePreferenceKeys.ApiBaseUrlOverride"/> (Ayarlar)
+/// 4) Yapılandırma <c>Api:BaseUrl</c> (appsettings + <c>B2B__Api__BaseUrl</c> ortam değişkeni)
+/// 5) DEBUG: sabit LAN varsayılanı; RELEASE: yapılandırma zorunlu
 /// </summary>
 public static class ApiBaseUrlResolver
 {
     private const string EnvVarName = "B2B_API_BASE";
     private const string AndroidMetaKey = "B2B_API_BASE";
     private const string ConfigKey = "Api:BaseUrl";
+
+    /// <summary>Kullanıcı girişini kök URL’ye çevirir (sonuna <c>/</c> ekler).</summary>
+    public static bool TryNormalizeUserBaseUrl(string? raw, out string normalized) =>
+        TryParseBase(raw, out normalized);
 
     public static string Resolve(IConfiguration configuration)
     {
@@ -25,6 +31,9 @@ public static class ApiBaseUrlResolver
             return fromMeta;
 #endif
 
+        if (TryPreferencesOverride(out var fromPrefs))
+            return fromPrefs;
+
         if (TryParseBase(configuration[ConfigKey], out var fromCfg))
             return fromCfg;
 
@@ -34,6 +43,20 @@ public static class ApiBaseUrlResolver
         throw new InvalidOperationException(
             "Api:BaseUrl yapılandırılmadı. appsettings.Production.json, ortam B2B_API_BASE veya B2B__Api__BaseUrl, ya da Android meta-data kullanın.");
 #endif
+    }
+
+    private static bool TryPreferencesOverride(out string normalized)
+    {
+        normalized = "";
+        try
+        {
+            var v = Preferences.Default.Get(MobilePreferenceKeys.ApiBaseUrlOverride, "");
+            return TryParseBase(v, out normalized);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static bool TryParseBase(string? raw, out string normalized)

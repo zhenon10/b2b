@@ -28,6 +28,11 @@ public sealed class JwtOptionsValidator : IValidateOptions<JwtOptions>
                 "or for local development: dotnet user-secrets set \"Jwt:SigningKey\" \"<your-key>\" --project B2B.Api");
         }
 
+        if (options.RefreshTokenDays < 1 || options.RefreshTokenDays > 366)
+        {
+            return ValidateOptionsResult.Fail("Jwt:RefreshTokenDays must be between 1 and 366.");
+        }
+
         return ValidateOptionsResult.Success;
     }
 }

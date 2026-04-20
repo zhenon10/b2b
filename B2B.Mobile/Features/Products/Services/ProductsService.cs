@@ -1,5 +1,5 @@
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
-using B2B.Mobile.Features.Products.Models;
 
 namespace B2B.Mobile.Features.Products.Services;
 
@@ -35,45 +35,13 @@ public sealed class ProductsService
         if (uncategorized == true) query.Add("uncategorized=true");
 
         var url = "/api/v1/products?" + string.Join("&", query);
-        return _api.GetAsync<PagedResult<ProductListItem>>(url, ct);
+        return ApiTransientRetry.ExecuteAsync(() => _api.GetAsync<PagedResult<ProductListItem>>(url, ct), ct);
     }
 
-    public Task<ApiResponse<ProductDetail>> GetProductAsync(Guid productId, CancellationToken ct)
-    {
-        return _api.GetAsync<ProductDetail>($"/api/v1/products/{productId}", ct);
-    }
-
-    public sealed record ProductImageInput(string Url, int SortOrder, bool IsPrimary);
-    public sealed record ProductSpecInput(string Key, string Value, int SortOrder);
-
-    public sealed record CreateProductRequest(
-        Guid? SellerUserId,
-        Guid? CategoryId,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImageInput>? Images,
-        IReadOnlyList<ProductSpecInput>? Specs,
-        bool IsActive = true
-    );
-
-    public sealed record UpdateProductRequest(
-        string Sku,
-        string Name,
-        string? Description,
-        Guid? CategoryId,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImageInput>? Images,
-        IReadOnlyList<ProductSpecInput>? Specs,
-        bool IsActive
-    );
+    public Task<ApiResponse<ProductDetail>> GetProductAsync(Guid productId, CancellationToken ct) =>
+        ApiTransientRetry.ExecuteAsync(
+            () => _api.GetAsync<ProductDetail>($"/api/v1/products/{productId}", ct),
+            ct);
 
     public Task<ApiResponse<ProductDetail>> CreateProductAsync(CreateProductRequest req, CancellationToken ct) =>
         _api.PostAsync<CreateProductRequest, ProductDetail>("/api/v1/products", req, ct);
@@ -85,4 +53,3 @@ public sealed class ProductsService
     public Task<ApiResponse<object>> DeactivateProductAsync(Guid productId, CancellationToken ct) =>
         _api.PostAsync<object>($"/api/v1/products/{productId}/deactivate", ct);
 }
-

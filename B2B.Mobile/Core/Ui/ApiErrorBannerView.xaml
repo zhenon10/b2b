@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="B2B.Mobile.Core.Ui.ApiErrorBannerView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
+    x:Name="BannerRoot">
+
+    <Border
+        Style="{StaticResource Card}"
+        Padding="12"
+        IsVisible="{Binding Message, Source={x:Reference BannerRoot}, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+        <VerticalStackLayout Spacing="8">
+            <Label
+                Text="{Binding Message, Source={x:Reference BannerRoot}}"
+                TextColor="{StaticResource Error}"
+                LineBreakMode="WordWrap"
+                SemanticProperties.Description="{Binding Message, Source={x:Reference BannerRoot}}" />
+            <Label
+                Text="{Binding TraceId, Source={x:Reference BannerRoot}, StringFormat='Destek kodu: {0}'}"
+                Style="{StaticResource Caption}"
+                LineBreakMode="CharacterWrap"
+                IsVisible="{Binding TraceId, Source={x:Reference BannerRoot}, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+                SemanticProperties.Description="{Binding TraceId, Source={x:Reference BannerRoot}, StringFormat='Destek kodu: {0}'}" />
+            <Button
+                Text="{x:Static str:AppStrings.Common_CopySupportCode}"
+                SemanticProperties.Hint="{x:Static str:AppStrings.Common_CopySupportCodeHint}"
+                Style="{StaticResource SecondaryButton}"
+                Clicked="OnCopyClicked"
+                IsVisible="{Binding TraceId, Source={x:Reference BannerRoot}, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

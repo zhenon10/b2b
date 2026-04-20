@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
     xmlns:models="clr-namespace:B2B.Mobile.Features.Auth.Models"
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
     Title="Onay bekleyen üyelikler">
 
     <Grid RowDefinitions="Auto,*">
@@ -21,10 +22,7 @@
                         Text="Mobil kayıt olan bayi hesapları. Onayladıktan sonra giriş yapabilirler."
                         Style="{StaticResource Caption}" />
 
-                    <Border Style="{StaticResource Card}" Padding="12"
-                            IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
-                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
-                    </Border>
+                    <ui:ApiErrorBannerView Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
 
                     <CollectionView ItemsSource="{Binding Items}">
                         <CollectionView.EmptyView>

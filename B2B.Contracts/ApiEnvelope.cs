@@ -1,4 +1,4 @@
-namespace B2B.Api.Contracts;
+namespace B2B.Contracts;
 
 public sealed record ApiResponse<T>(
     bool Success,
@@ -19,4 +19,3 @@ public sealed record ApiError(
     string Message,
     IReadOnlyDictionary<string, string[]>? Details = null
 );
-

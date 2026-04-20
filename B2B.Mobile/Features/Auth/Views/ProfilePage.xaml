@@ -4,7 +4,9 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
-    Title="Profil">
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
+    xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
+    Title="{x:Static str:AppStrings.Profile_PageTitle}">
 
     <Grid RowDefinitions="Auto,*">
         <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
@@ -12,49 +14,90 @@
         <VerticalStackLayout Padding="16" Spacing="14">
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 
+            <ui:ApiErrorBannerView Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
+
             <Border Style="{StaticResource Card}" Padding="16">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="Hesap bilgileri" Style="{StaticResource Title2}" />
-                    <Label Text="E-posta" Style="{StaticResource Caption}" />
+                    <Label Text="{x:Static str:AppStrings.Profile_AccountSection}" Style="{StaticResource Title2}" SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{x:Static str:AppStrings.Profile_EmailCaption}" Style="{StaticResource Caption}" />
                     <Label Text="{Binding ProfileEmail}" FontAttributes="Bold" />
-                    <Label Text="Görünen ad" Style="{StaticResource Caption}" />
+                    <Label Text="{x:Static str:AppStrings.Profile_DisplayNameCaption}" Style="{StaticResource Caption}" />
                     <Label Text="{Binding ProfileDisplayName}" />
-                    <Label Text="Roller" Style="{StaticResource Caption}" />
+                    <Label Text="{x:Static str:AppStrings.Profile_RolesCaption}" Style="{StaticResource Caption}" />
                     <Label Text="{Binding ProfileRoles}" />
-                    <Label Text="Durum" Style="{StaticResource Caption}" />
+                    <Label Text="{x:Static str:AppStrings.Profile_StatusCaption}" Style="{StaticResource Caption}" />
                     <Label Text="{Binding AccountStatus}" />
                 </VerticalStackLayout>
             </Border>
 
             <Border Style="{StaticResource Card}" Padding="16">
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="Şifre değiştir" Style="{StaticResource Title2}" />
+                    <Label Text="{x:Static str:AppStrings.Profile_ResumeLockSection}" Style="{StaticResource Title2}" SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{x:Static str:AppStrings.Profile_ResumeLockHint}" Style="{StaticResource Caption}" />
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <Switch IsToggled="{Binding ResumeLockEnabled}"
+                                VerticalOptions="Center"
+                                SemanticProperties.Description="{x:Static str:AppStrings.Profile_ResumeLockSwitch}" />
+                        <Label Text="{x:Static str:AppStrings.Profile_ResumeLockSwitch}" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                    </HorizontalStackLayout>
+                    <Border Style="{StaticResource InputContainer}" IsVisible="{Binding ResumeLockEnabled}">
+                        <Entry Placeholder="{x:Static str:AppStrings.Profile_PinPlaceholder}"
+                               IsPassword="True"
+                               Keyboard="Numeric"
+                               MaxLength="8"
+                               Text="{Binding ResumeLockPinDraft}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Profile_PinHint}" />
+                    </Border>
+                    <Button Text="{x:Static str:AppStrings.Profile_SaveLockSettings}"
+                            SemanticProperties.Hint="{x:Static str:AppStrings.Profile_SaveLockSettingsHint}"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding SaveResumeLockCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="{x:Static str:AppStrings.Profile_ChangePasswordSection}" Style="{StaticResource Title2}" SemanticProperties.HeadingLevel="Level2" />
 
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Mevcut şifre" IsPassword="True" Text="{Binding CurrentPassword}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Profile_CurrentPasswordPlaceholder}"
+                               IsPassword="True"
+                               Text="{Binding CurrentPassword}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Profile_CurrentPasswordPlaceholder}" />
                     </Border>
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Yeni şifre (en az 8 karakter)" IsPassword="True" Text="{Binding NewPassword}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Profile_NewPasswordPlaceholder}"
+                               IsPassword="True"
+                               Text="{Binding NewPassword}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Profile_NewPasswordPlaceholder}" />
                     </Border>
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Yeni şifre (tekrar)" IsPassword="True" Text="{Binding ConfirmPassword}" />
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
-                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Profile_ConfirmPasswordPlaceholder}"
+                               IsPassword="True"
+                               Text="{Binding ConfirmPassword}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Profile_ConfirmPasswordPlaceholder}" />
                     </Border>
 
                     <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding SuccessMessage, Converter={StaticResource StringNotNullOrEmptyConverter}}">
                         <Label Text="{Binding SuccessMessage}" TextColor="{StaticResource Primary}" />
                     </Border>
 
-                    <Button Text="Şifreyi güncelle"
+                    <Button Text="{x:Static str:AppStrings.Profile_UpdatePassword}"
+                            SemanticProperties.Hint="{x:Static str:AppStrings.Profile_UpdatePasswordHint}"
                             Command="{Binding ChangePasswordCommand}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
                 </VerticalStackLayout>
             </Border>
 
-            <Button Text="Çıkış yap"
+            <Button Text="{x:Static str:AppStrings.Profile_OpenSettings}"
+                    SemanticProperties.Hint="{x:Static str:AppStrings.Profile_OpenSettingsHint}"
+                    Style="{StaticResource SecondaryButton}"
+                    Command="{Binding OpenSettingsCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+
+            <Button Text="{x:Static str:AppStrings.Profile_Logout}"
+                    SemanticProperties.Hint="{x:Static str:AppStrings.Profile_LogoutHint}"
                     Style="{StaticResource SecondaryButton}"
                     Command="{Binding LogoutCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />

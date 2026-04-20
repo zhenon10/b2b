@@ -1,7 +1,10 @@
-using B2B.Api.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Contracts;
+using B2B.Api.Security;
 using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
+using ImageEntity = B2B.Domain.Entities.ProductImage;
+using SpecEntity = B2B.Domain.Entities.ProductSpec;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,75 +23,6 @@ public sealed class ProductsController : ControllerBase
         _db = db;
     }
 
-    public sealed record CreateProductRequest(
-        Guid? SellerUserId,
-        Guid? CategoryId,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImageInput>? Images,
-        IReadOnlyList<ProductSpecInput>? Specs,
-        bool IsActive = true
-    );
-
-    public sealed record UpdateProductRequest(
-        string Sku,
-        string Name,
-        string? Description,
-        Guid? CategoryId,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        IReadOnlyList<ProductImageInput>? Images,
-        IReadOnlyList<ProductSpecInput>? Specs,
-        bool IsActive
-    );
-
-    public sealed record ProductImageInput(string Url, int SortOrder, bool IsPrimary);
-    public sealed record ProductSpecInput(string Key, string Value, int SortOrder);
-
-    public sealed record ProductListItemDto(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        string? PrimaryImageUrl,
-        string Sku,
-        string Name,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive
-    );
-
-    public sealed record ProductImageDto(string Url, int SortOrder, bool IsPrimary);
-    public sealed record ProductSpecDto(string Key, string Value, int SortOrder);
-
-    public sealed record ProductDetailDto(
-        Guid ProductId,
-        Guid SellerUserId,
-        string SellerDisplayName,
-        Guid? CategoryId,
-        string? CategoryName,
-        IReadOnlyList<ProductImageDto> Images,
-        IReadOnlyList<ProductSpecDto> Specs,
-        string Sku,
-        string Name,
-        string? Description,
-        string CurrencyCode,
-        decimal DealerPrice,
-        decimal MsrpPrice,
-        int StockQuantity,
-        bool IsActive
-    );
-
     [HttpGet]
     /// <summary>List products (paginated).</summary>
     /// <remarks>
@@ -101,8 +35,8 @@ public sealed class ProductsController : ControllerBase
     /// GET /api/v1/products?q=bolt&amp;page=1&amp;pageSize=20
     /// </code>
     /// </remarks>
-    [ProducesResponseType(typeof(ApiResponse<PagedResult<ProductListItemDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<PagedResult<ProductListItemDto>>>> List(
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<ProductListItem>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<PagedResult<ProductListItem>>>> List(
         [FromQuery] PageRequest page,
         [FromQuery] Guid? sellerUserId,
         [FromQuery] Guid? categoryId,
@@ -162,7 +96,7 @@ public sealed class ProductsController : ControllerBase
                     .Select(i => i.Url)
                     .FirstOrDefault()
             })
-            .Select(x => new ProductListItemDto(
+            .Select(x => new ProductListItem(
                 x.p.ProductId,
                 x.p.SellerUserId,
                 x.DisplayName ?? x.p.SellerUserId.ToString(),
@@ -192,18 +126,18 @@ public sealed class ProductsController : ControllerBase
             })
             .ToList();
 
-        var result = new PagedResult<ProductListItemDto>(
+        var result = new PagedResult<ProductListItem>(
             itemsWithPublicUrls,
             new PageMeta(page.Page, page.PageSize, itemsWithPublicUrls.Count, total)
         );
 
-        return Ok(ApiResponse<PagedResult<ProductListItemDto>>.Ok(result, HttpContext.TraceId()));
+        return Ok(ApiResponse<PagedResult<ProductListItem>>.Ok(result, HttpContext.TraceId()));
     }
 
     public sealed record UpdateStockRequest(int StockQuantity);
 
     [HttpPatch("{productId:guid}/stock")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<ApiResponse<object>>> UpdateStock(Guid productId, [FromBody] UpdateStockRequest req, CancellationToken ct)
     {
         if (req.StockQuantity < 0)
@@ -233,7 +167,7 @@ public sealed class ProductsController : ControllerBase
     public sealed record UpdateActiveRequest(bool IsActive);
 
     [HttpPatch("{productId:guid}/active")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<ApiResponse<object>>> UpdateActive(Guid productId, [FromBody] UpdateActiveRequest req, CancellationToken ct)
     {
         var product = await _db.Products.FirstOrDefaultAsync(p => p.ProductId == productId, ct);
@@ -253,7 +187,7 @@ public sealed class ProductsController : ControllerBase
     }
 
     [HttpGet("{productId:guid}")]
-    public async Task<ActionResult<ApiResponse<ProductDetailDto>>> Get(Guid productId, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<ProductDetail>>> Get(Guid productId, CancellationToken ct)
     {
         var item = await _db.Products.AsNoTracking()
             .Where(x => x.ProductId == productId)
@@ -263,7 +197,7 @@ public sealed class ProductsController : ControllerBase
                 u => u.UserId,
                 (p, u) => new { p, u.DisplayName }
             )
-            .Select(x => new ProductDetailDto(
+            .Select(x => new ProductDetail(
                 x.p.ProductId,
                 x.p.SellerUserId,
                 x.DisplayName ?? x.p.SellerUserId.ToString(),
@@ -298,20 +232,20 @@ public sealed class ProductsController : ControllerBase
 
         if (item is null)
         {
-            return NotFound(ApiResponse<ProductDetailDto>.Fail(
+            return NotFound(ApiResponse<ProductDetail>.Fail(
                 new ApiError("not_found", "Product not found.", null),
                 HttpContext.TraceId()
             ));
         }
 
-        return Ok(ApiResponse<ProductDetailDto>.Ok(WithPublicImageUrls(item), HttpContext.TraceId()));
+        return Ok(ApiResponse<ProductDetail>.Ok(WithPublicImageUrls(item), HttpContext.TraceId()));
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<ProductDetailDto>), StatusCodes.Status201Created)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [ProducesResponseType(typeof(ApiResponse<ProductDetail>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ApiResponse<ProductDetailDto>>> Create([FromBody] CreateProductRequest req, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<ProductDetail>>> Create([FromBody] CreateProductRequest req, CancellationToken ct)
     {
         var (userId, _) = GetCurrentUser();
         var sellerUserId = req.SellerUserId ?? userId;
@@ -375,7 +309,7 @@ public sealed class ProductsController : ControllerBase
         {
             foreach (var img in normalizedImages)
             {
-                _db.ProductImages.Add(new ProductImage
+                _db.ProductImages.Add(new ImageEntity
                 {
                     ProductImageId = Guid.NewGuid(),
                     ProductId = entity.ProductId,
@@ -391,7 +325,7 @@ public sealed class ProductsController : ControllerBase
         {
             foreach (var spec in normalizedSpecs)
             {
-                _db.ProductSpecs.Add(new ProductSpec
+                _db.ProductSpecs.Add(new SpecEntity
                 {
                     ProductSpecId = Guid.NewGuid(),
                     ProductId = entity.ProductId,
@@ -416,7 +350,7 @@ public sealed class ProductsController : ControllerBase
                 .Select(c => c.Name)
                 .FirstOrDefaultAsync(ct);
 
-        var dto = new ProductDetailDto(
+        var dto = new ProductDetail(
             entity.ProductId,
             entity.SellerUserId,
             sellerDisplayName ?? entity.SellerUserId.ToString(),
@@ -437,15 +371,15 @@ public sealed class ProductsController : ControllerBase
         return CreatedAtAction(
             nameof(Get),
             new { productId = entity.ProductId },
-            ApiResponse<ProductDetailDto>.Ok(WithPublicImageUrls(dto), HttpContext.TraceId()));
+            ApiResponse<ProductDetail>.Ok(WithPublicImageUrls(dto), HttpContext.TraceId()));
     }
 
     [HttpPut("{productId:guid}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<ProductDetailDto>), StatusCodes.Status200OK)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [ProducesResponseType(typeof(ApiResponse<ProductDetail>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ApiResponse<ProductDetailDto>>> Update(Guid productId, [FromBody] UpdateProductRequest req, CancellationToken ct)
+    public async Task<ActionResult<ApiResponse<ProductDetail>>> Update(Guid productId, [FromBody] UpdateProductRequest req, CancellationToken ct)
     {
         var product = await _db.Products.FirstOrDefaultAsync(p => p.ProductId == productId, ct);
         if (product is null)
@@ -504,7 +438,7 @@ public sealed class ProductsController : ControllerBase
         {
             foreach (var img in normalizedImages)
             {
-                _db.ProductImages.Add(new ProductImage
+                _db.ProductImages.Add(new ImageEntity
                 {
                     ProductImageId = Guid.NewGuid(),
                     ProductId = product.ProductId,
@@ -523,7 +457,7 @@ public sealed class ProductsController : ControllerBase
         {
             foreach (var spec in normalizedSpecs)
             {
-                _db.ProductSpecs.Add(new ProductSpec
+                _db.ProductSpecs.Add(new SpecEntity
                 {
                     ProductSpecId = Guid.NewGuid(),
                     ProductId = product.ProductId,
@@ -548,7 +482,7 @@ public sealed class ProductsController : ControllerBase
                 .Select(c => c.Name)
                 .FirstOrDefaultAsync(ct);
 
-        var dto = new ProductDetailDto(
+        var dto = new ProductDetail(
             product.ProductId,
             product.SellerUserId,
             sellerDisplayName ?? product.SellerUserId.ToString(),
@@ -575,11 +509,11 @@ public sealed class ProductsController : ControllerBase
             product.IsActive
         );
 
-        return Ok(ApiResponse<ProductDetailDto>.Ok(WithPublicImageUrls(dto), HttpContext.TraceId()));
+        return Ok(ApiResponse<ProductDetail>.Ok(WithPublicImageUrls(dto), HttpContext.TraceId()));
     }
 
     [HttpPost("{productId:guid}/deactivate")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<object>>> Deactivate(Guid productId, CancellationToken ct)
@@ -603,7 +537,7 @@ public sealed class ProductsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { productId, isActive = product.IsActive }, HttpContext.TraceId()));
     }
 
-    private ProductDetailDto WithPublicImageUrls(ProductDetailDto dto)
+    private ProductDetail WithPublicImageUrls(ProductDetail dto)
     {
         var req = HttpContext.Request;
         return dto with

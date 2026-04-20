@@ -1,12 +1,12 @@
-using System.Diagnostics;
-using B2B.Mobile.Core.Api;
+using B2B.Contracts;
 
-namespace B2B.Mobile.Features.Orders.Services;
+namespace B2B.Mobile.Core.Api;
 
 /// <summary>
-/// Ağ dalgalanması / kısa kesintiler için sınırlı yeniden deneme (aynı idempotency ile güvenli).
+/// Ağ dalgalanması / kısa kesintiler için sınırlı yeniden deneme.
+/// Yazma işlemleri için sunucunun idempotency desteklediği durumlarda kullanın.
 /// </summary>
-internal static class OrderTransientRetry
+public static class ApiTransientRetry
 {
     private const int MaxAttempts = 3;
 
@@ -17,14 +17,15 @@ internal static class OrderTransientRetry
         Func<Task<ApiResponse<T>>> send,
         CancellationToken ct)
     {
+        ApiResponse<T>? last = null;
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            var r = await send();
-            if (r.Success || r.Error is null || !IsTransient(r.Error))
-                return r;
+            last = await send();
+            if (last.Success || last.Error is null || !IsTransient(last.Error))
+                return last;
 
             if (attempt == MaxAttempts)
-                return r;
+                return last;
 
             try
             {
@@ -32,10 +33,10 @@ internal static class OrderTransientRetry
             }
             catch (OperationCanceledException)
             {
-                return r;
+                return last;
             }
         }
 
-        throw new UnreachableException();
+        return last!;
     }
 }

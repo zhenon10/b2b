@@ -4,16 +4,17 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
     x:Name="CartPageRoot"
-    Title="Sepet">
+    Title="{x:Static str:AppStrings.Cart_PageTitle}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="10">
         <shell:MainHeaderView Grid.Row="0" />
         <CollectionView Grid.Row="1" ItemsSource="{Binding Lines}">
             <CollectionView.EmptyView>
                 <VerticalStackLayout Padding="24" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
-                    <Label Text="Sepetiniz boş" Style="{StaticResource Title}" HorizontalTextAlignment="Center" />
-                    <Label Text="Sipariş vermek için ürün ekleyin." Style="{StaticResource Caption}" HorizontalTextAlignment="Center" />
+                    <Label Text="{x:Static str:AppStrings.Cart_EmptyTitle}" Style="{StaticResource Title}" HorizontalTextAlignment="Center" SemanticProperties.HeadingLevel="Level2" />
+                    <Label Text="{x:Static str:AppStrings.Cart_EmptySubtitle}" Style="{StaticResource Caption}" HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
@@ -21,17 +22,24 @@
                     <Border Style="{StaticResource Card}" Padding="12" Margin="0,0,0,10">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="12">
                             <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Button Grid.Row="0" Grid.Column="1" Text="Kaldır"
+                            <Button Grid.Row="0" Grid.Column="1" Text="{x:Static str:AppStrings.Cart_RemoveLine}"
+                                    SemanticProperties.Hint="{x:Static str:AppStrings.Cart_RemoveLineHint}"
                                     Style="{StaticResource SecondaryButton}"
                                     Command="{Binding BindingContext.RemoveCommand, Source={x:Reference Name=CartPageRoot}}"
                                     CommandParameter="{Binding .}" />
 
                             <Label Grid.Row="1" Grid.Column="0" Text="{Binding Sku}" Style="{StaticResource Caption}" />
 
-                            <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="10">
+                            <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8">
                                 <Label Text="{Binding Quantity, StringFormat='Adet: {0}'}" Style="{StaticResource Caption}" />
-                                <Label Text="{Binding UnitPrice, StringFormat='Birim: {0:0.##}'}" Style="{StaticResource Caption}" />
-                                <Label Text="{Binding LineTotal, StringFormat='Satır: {0:0.##}'}" FontAttributes="Bold" />
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label Text="{Binding UnitPrice, StringFormat='Birim: {0:0.##}'}" Style="{StaticResource Caption}" />
+                                    <Label Text="{Binding CurrencyCode}" Style="{StaticResource Caption}" FontAttributes="Bold" />
+                                </HorizontalStackLayout>
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label Text="{Binding LineTotal, StringFormat='Satır: {0:0.##}'}" FontAttributes="Bold" />
+                                    <Label Text="{Binding CurrencyCode}" Style="{StaticResource Caption}" />
+                                </HorizontalStackLayout>
                             </HorizontalStackLayout>
                         </Grid>
                     </Border>
@@ -42,11 +50,16 @@
         <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="Toplam" Style="{StaticResource Caption}" />
-                    <Label Text="{Binding Total, StringFormat='{0:0.##}'}" FontAttributes="Bold" FontSize="18" />
+                    <Label Text="{x:Static str:AppStrings.Cart_TotalCaption}" Style="{StaticResource Caption}" />
+                    <Label Text="{Binding TotalSummary}" FontAttributes="Bold" FontSize="18" SemanticProperties.Description="{Binding TotalSummary}" />
                 </VerticalStackLayout>
-                <Button Grid.Column="1" Text="Temizle" Style="{StaticResource SecondaryButton}" Command="{Binding ClearCommand}" />
-                <Button Grid.Column="2" Text="Siparişe geç" Command="{Binding CheckoutCommand}" />
+                <Button Grid.Column="1" Text="{x:Static str:AppStrings.Cart_Clear}"
+                        SemanticProperties.Hint="{x:Static str:AppStrings.Cart_ClearHint}"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ClearCommand}" />
+                <Button Grid.Column="2" Text="{x:Static str:AppStrings.Cart_Checkout}"
+                        SemanticProperties.Hint="{x:Static str:AppStrings.Cart_CheckoutHint}"
+                        Command="{Binding CheckoutCommand}" />
             </Grid>
         </Border>
     </Grid>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.Auth.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    Title="Bağlantı">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="14">
+                <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" />
+
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="API kök adresi" Style="{StaticResource Title2}" />
+                        <Label
+                            Text="Bu oturumda kullanılan adres (uygulama açılırken sabitlenir):"
+                            Style="{StaticResource Caption}" />
+                        <Label Text="{Binding SessionBaseUrl}" FontAttributes="Bold" LineBreakMode="CharacterWrap" />
+                        <Button
+                            Text="Oturum adresini kopyala"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding CopySessionUrlCommand}"
+                            CommandParameter="{Binding SessionBaseUrl}" />
+
+                        <Label
+                            Margin="0,8,0,0"
+                            Text="Özel adres (bir sonraki başlatışta önceliklidir; ortam değişkeni ve Android meta verisi hâlâ daha önce gelir):"
+                            Style="{StaticResource Caption}" />
+                        <Border Style="{StaticResource InputContainer}">
+                            <Entry
+                                Placeholder="https://sunucunuz.com"
+                                Text="{Binding ApiUrlDraft}"
+                                Keyboard="Url" />
+                        </Border>
+
+                        <Label Text="{Binding StatusMessage}" Style="{StaticResource Caption}" LineBreakMode="WordWrap"
+                               IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                        <Button Text="Bağlantıyı test et"
+                                Command="{Binding TestConnectionCommand}"
+                                IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBoolConverter}}" />
+                        <Button Text="Özel adresi kaydet"
+                                Command="{Binding SaveOverrideCommand}"
+                                IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBoolConverter}}" />
+                        <Button Text="Özel adresi kaldır"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ClearOverrideCommand}"
+                                IsEnabled="{Binding IsTesting, Converter={StaticResource InverseBoolConverter}}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

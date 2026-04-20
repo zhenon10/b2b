@@ -1,8 +1,9 @@
+using B2B.Contracts;
 using FluentValidation;
 
-namespace B2B.Api.Controllers;
+namespace B2B.Api.Validation;
 
-public sealed class RegisterRequestValidator : AbstractValidator<AuthController.RegisterRequest>
+public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
     public RegisterRequestValidator()
     {
@@ -25,7 +26,7 @@ public sealed class RegisterRequestValidator : AbstractValidator<AuthController.
     }
 }
 
-public sealed class LoginRequestValidator : AbstractValidator<AuthController.LoginRequest>
+public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
     public LoginRequestValidator()
     {
@@ -39,4 +40,3 @@ public sealed class LoginRequestValidator : AbstractValidator<AuthController.Log
             .MaximumLength(128);
     }
 }
-

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using B2B.Api.Contracts;
+using B2B.Contracts;
 using B2B.Api.Infrastructure;
 
 namespace B2B.Api.Controllers;

@@ -16,7 +16,7 @@ public partial class ProductDetailPage : ContentPage
 
         _editToolbar = new ToolbarItem
         {
-            Text = "Edit",
+            Text = "Düzenle",
             Order = ToolbarItemOrder.Primary,
             Priority = 0,
             Command = _vm.EditCommand

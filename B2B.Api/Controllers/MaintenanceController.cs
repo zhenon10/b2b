@@ -1,4 +1,5 @@
-using B2B.Api.Contracts;
+using B2B.Api.Security;
+using B2B.Contracts;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -9,7 +10,7 @@ namespace B2B.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/maintenance")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public sealed class MaintenanceController : ControllerBase
 {
     private readonly B2BDbContext _db;
@@ -105,17 +106,5 @@ public sealed class MaintenanceController : ControllerBase
         fileName = tail;
         return true;
     }
-
-    public sealed record BrokenProductImage(Guid ProductImageId, Guid ProductId, string Url);
-
-    public sealed record ReconcileProductImagesResponse(
-        bool DryRun,
-        string WebRoot,
-        string UploadsRoot,
-        int TotalImages,
-        int BrokenCount,
-        int DeletedCount,
-        IReadOnlyList<BrokenProductImage> Broken
-    );
 }
 

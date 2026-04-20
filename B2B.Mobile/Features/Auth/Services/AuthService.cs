@@ -1,3 +1,4 @@
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
 
@@ -14,31 +15,15 @@ public sealed class AuthService
         _session = session;
     }
 
-    public sealed record LoginRequest(string Email, string Password);
-    public sealed record LoginResponse(string AccessToken);
-
-    public sealed record RegisterRequest(string Email, string Password, string? DisplayName);
-    public sealed record RegisterResponse(string? AccessToken, string Message);
-
-    public sealed record ProfileResponse(
-        Guid UserId,
-        string Email,
-        string? DisplayName,
-        List<string>? Roles,
-        DateTime? ApprovedAtUtc);
-
-    public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-
-    // Backend endpoints are expected at:
-    // - POST /api/v1/auth/login
-    // - POST /api/v1/auth/register
-    // - GET  /api/v1/auth/me
-    // - POST /api/v1/auth/change-password
-    public async Task<ApiResponse<LoginResponse>> LoginAsync(string email, string password, CancellationToken ct)
+    public async Task<ApiResponse<AuthResponse>> LoginAsync(string email, string password, CancellationToken ct)
     {
-        var resp = await _api.PostAsync<LoginRequest, LoginResponse>("/api/v1/auth/login", new(email, password), ct);
+        var resp = await _api.PostAsync<LoginRequest, AuthResponse>("/api/v1/auth/login", new(email, password), ct);
         if (resp.Success && resp.Data is not null)
+        {
             await _session.SetAccessTokenAsync(resp.Data.AccessToken);
+            await _session.SetRefreshTokenAsync(resp.Data.RefreshToken);
+        }
+
         return resp;
     }
 
@@ -46,14 +31,19 @@ public sealed class AuthService
     {
         var resp = await _api.PostAsync<RegisterRequest, RegisterResponse>("/api/v1/auth/register", new(email, password, displayName), ct);
         if (resp.Success && resp.Data is not null && !string.IsNullOrWhiteSpace(resp.Data.AccessToken))
+        {
             await _session.SetAccessTokenAsync(resp.Data.AccessToken);
+            if (!string.IsNullOrWhiteSpace(resp.Data.RefreshToken))
+                await _session.SetRefreshTokenAsync(resp.Data.RefreshToken);
+        }
+
         return resp;
     }
 
     public Task LogoutAsync() => _session.ClearAsync();
 
     public Task<ApiResponse<ProfileResponse>> GetProfileAsync(CancellationToken ct) =>
-        _api.GetAsync<ProfileResponse>("/api/v1/auth/me", ct);
+        ApiTransientRetry.ExecuteAsync(() => _api.GetAsync<ProfileResponse>("/api/v1/auth/me", ct), ct);
 
     public Task<ApiResponse<object>> ChangePasswordAsync(string currentPassword, string newPassword, CancellationToken ct) =>
         _api.PostAsync<ChangePasswordRequest, object>(
@@ -61,4 +51,3 @@ public sealed class AuthService
             new ChangePasswordRequest(currentPassword, newPassword),
             ct);
 }
-

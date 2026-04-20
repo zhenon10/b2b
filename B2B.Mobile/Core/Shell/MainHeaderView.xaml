@@ -3,23 +3,50 @@
     x:Class="B2B.Mobile.Core.Shell.MainHeaderView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
     x:Name="Root">
 
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0">
-        <Label
-            x:Name="LeftCaptionLabel"
-            Grid.Column="0"
-            Text="{Binding LeftCaption, Source={x:Reference Root}}"
-            Style="{StaticResource Caption}"
-            VerticalOptions="Center"
-            LineBreakMode="TailTruncation"
-            IsVisible="{Binding LeftCaption, Source={x:Reference Root}, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
-        <Label
-            x:Name="UsdLabel"
-            Grid.Column="1"
-            Style="{StaticResource Caption}"
-            FontAttributes="Bold"
-            VerticalOptions="Center"
-            HorizontalTextAlignment="End" />
-    </Grid>
+    <VerticalStackLayout Spacing="6">
+        <Border
+            x:Name="OfflineBanner"
+            Padding="10,6"
+            BackgroundColor="{StaticResource Error}"
+            StrokeThickness="0"
+            IsVisible="False">
+            <Label
+                Text="{x:Static str:AppStrings.Connectivity_OfflineMessage}"
+                TextColor="White"
+                Style="{StaticResource Caption}"
+                SemanticProperties.Description="{x:Static str:AppStrings.Connectivity_OfflineMessage}" />
+        </Border>
+        <Border
+            x:Name="ConstrainedBanner"
+            Padding="10,6"
+            BackgroundColor="{StaticResource Gray600}"
+            StrokeThickness="0"
+            IsVisible="False">
+            <Label
+                Text="{x:Static str:AppStrings.Connectivity_ConstrainedMessage}"
+                TextColor="White"
+                Style="{StaticResource Caption}"
+                SemanticProperties.Description="{x:Static str:AppStrings.Connectivity_ConstrainedMessage}" />
+        </Border>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0">
+            <Label
+                x:Name="LeftCaptionLabel"
+                Grid.Column="0"
+                Text="{Binding LeftCaption, Source={x:Reference Root}}"
+                Style="{StaticResource Caption}"
+                VerticalOptions="Center"
+                LineBreakMode="TailTruncation"
+                IsVisible="{Binding LeftCaption, Source={x:Reference Root}, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+            <Label
+                x:Name="UsdLabel"
+                Grid.Column="1"
+                Style="{StaticResource Caption}"
+                FontAttributes="Bold"
+                VerticalOptions="Center"
+                HorizontalTextAlignment="End" />
+        </Grid>
+    </VerticalStackLayout>
 </ContentView>

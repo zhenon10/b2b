@@ -1,3 +1,3 @@
-namespace B2B.Mobile.Features.Auth.Models;
+namespace B2B.Contracts;
 
 public sealed record PendingDealerDto(Guid UserId, string Email, string? DisplayName, DateTime CreatedAtUtc);

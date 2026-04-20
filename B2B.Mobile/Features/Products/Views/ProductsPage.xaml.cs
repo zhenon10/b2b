@@ -1,3 +1,4 @@
+using B2B.Contracts;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
 using B2B.Mobile.Features.Products.ViewModels;

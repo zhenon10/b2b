@@ -1,9 +1,9 @@
-using B2B.Api.Controllers;
+using B2B.Contracts;
 using FluentValidation;
 
 namespace B2B.Api.Validation;
 
-public sealed class SubmitOrderRequestValidator : AbstractValidator<OrdersController.SubmitOrderRequest>
+public sealed class SubmitOrderRequestValidator : AbstractValidator<SubmitOrderRequest>
 {
     public SubmitOrderRequestValidator()
     {
@@ -19,7 +19,7 @@ public sealed class SubmitOrderRequestValidator : AbstractValidator<OrdersContro
     }
 }
 
-public sealed class UpdateOrderStatusRequestValidator : AbstractValidator<OrdersController.UpdateOrderStatusRequest>
+public sealed class UpdateOrderStatusRequestValidator : AbstractValidator<UpdateOrderStatusRequest>
 {
     public UpdateOrderStatusRequestValidator()
     {

@@ -1,6 +1,6 @@
 using System.Net;
 using FluentValidation;
-using B2B.Api.Contracts;
+using B2B.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

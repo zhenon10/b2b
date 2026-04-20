@@ -12,12 +12,17 @@ public partial class AppShell : Shell
     private readonly MainFlyoutViewModel _mainFlyoutVm;
     private readonly IAuthSession _authSession;
 
-    public AppShell(CategoriesFlyoutViewModel categoriesFlyout, MainFlyoutViewModel mainFlyoutVm, IAuthSession authSession)
+    public AppShell(
+        CategoriesFlyoutViewModel categoriesFlyout,
+        MainFlyoutViewModel mainFlyoutVm,
+        AppShellViewModel shellVm,
+        IAuthSession authSession)
     {
         InitializeComponent();
 
         _mainFlyoutVm = mainFlyoutVm;
         _authSession = authSession;
+        BindingContext = shellVm;
         MainFlyoutRoot.SetCategoriesBindingContext(categoriesFlyout);
         MainFlyoutRoot.BindingContext = mainFlyoutVm;
 
@@ -39,6 +44,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("categoryEdit", typeof(CategoryEditPage));
         Routing.RegisterRoute("pendingDealers", typeof(PendingDealersPage));
         Routing.RegisterRoute("adminOrders", typeof(AdminOrdersPage));
+        Routing.RegisterRoute("settings", typeof(SettingsPage));
     }
 
     private void OnNavigated(object? sender, ShellNavigatedEventArgs e)

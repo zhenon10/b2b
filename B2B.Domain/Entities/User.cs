@@ -26,5 +26,7 @@ public sealed class User
     public ICollection<Product> ProductsAsSeller { get; set; } = new List<Product>();
     public ICollection<Order> OrdersAsBuyer { get; set; } = new List<Order>();
     public ICollection<Order> OrdersAsSeller { get; set; } = new List<Order>();
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }
 

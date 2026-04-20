@@ -1,5 +1,5 @@
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
-using B2B.Mobile.Features.Products.Models;
 
 namespace B2B.Mobile.Features.Products.Services;
 
@@ -15,12 +15,8 @@ public sealed class CategoriesService
     public Task<ApiResponse<List<CategoryListItem>>> GetCategoriesAsync(bool includeInactive, CancellationToken ct)
     {
         var url = $"/api/v1/categories?includeInactive={includeInactive.ToString().ToLowerInvariant()}";
-        return _api.GetAsync<List<CategoryListItem>>(url, ct);
+        return ApiTransientRetry.ExecuteAsync(() => _api.GetAsync<List<CategoryListItem>>(url, ct), ct);
     }
-
-    public sealed record CreateCategoryRequest(string Name, int SortOrder = 0, bool IsActive = true);
-
-    public sealed record UpdateCategoryRequest(string Name, int SortOrder, bool IsActive);
 
     public Task<ApiResponse<CategoryListItem>> CreateCategoryAsync(CreateCategoryRequest body, CancellationToken ct) =>
         _api.PostAsync<CreateCategoryRequest, CategoryListItem>("/api/v1/categories", body, ct);

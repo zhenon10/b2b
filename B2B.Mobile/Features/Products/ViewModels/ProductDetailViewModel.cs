@@ -1,14 +1,18 @@
 using B2B.Mobile.Features.Cart.Models;
 using B2B.Mobile.Features.Cart.Services;
+using B2B.Contracts;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.Controls;
 
 namespace B2B.Mobile.Features.Products.ViewModels;
 
 [QueryProperty(nameof(Product), "product")]
+[QueryProperty(nameof(ProductIdQuery), "productId")]
 public partial class ProductDetailViewModel : ObservableObject
 {
     private readonly CartService _cart;
@@ -23,8 +27,10 @@ public partial class ProductDetailViewModel : ObservableObject
         _ = LoadRolesAsync();
     }
 
-    // Summary passed from list navigation.
+    // Summary passed from list navigation or built from productId query.
     [ObservableProperty] private ProductListItem? product;
+
+    [ObservableProperty] private string? productIdQuery;
 
     // Full detail loaded from API (images/specs/description).
     [ObservableProperty] private ProductDetail? detail;
@@ -32,10 +38,36 @@ public partial class ProductDetailViewModel : ObservableObject
     [ObservableProperty] private int quantity = 1;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
     [ObservableProperty] private bool canManageProducts;
 
     /// <summary>Tam ekran önizleme; null ise kapalı.</summary>
     [ObservableProperty] private string? imagePreviewUrl;
+
+    partial void OnProductIdQueryChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+        if (Product is not null)
+            return;
+        if (!Guid.TryParse(value.Trim(), out var id))
+            return;
+
+        Product = new ProductListItem(
+            id,
+            Guid.Empty,
+            "…",
+            null,
+            null,
+            null,
+            "",
+            "Yükleniyor…",
+            "TRY",
+            0,
+            0,
+            0,
+            true);
+    }
 
     private async Task LoadRolesAsync()
     {
@@ -65,9 +97,9 @@ public partial class ProductDetailViewModel : ObservableObject
                 CategoryId: value.CategoryId,
                 CategoryName: value.CategoryName,
                 Images: string.IsNullOrWhiteSpace(value.PrimaryImageUrl)
-                    ? Array.Empty<ProductImage>()
-                    : new[] { new ProductImage(value.PrimaryImageUrl!, SortOrder: 0, IsPrimary: true) },
-                Specs: Array.Empty<ProductSpec>(),
+                    ? Array.Empty<ProductImageDto>()
+                    : new[] { new ProductImageDto(value.PrimaryImageUrl!, SortOrder: 0, IsPrimary: true) },
+                Specs: Array.Empty<ProductSpecDto>(),
                 Sku: value.Sku,
                 Name: value.Name,
                 Description: null,
@@ -89,27 +121,42 @@ public partial class ProductDetailViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _products.GetProductAsync(summary.ProductId, CancellationToken.None);
             if (!resp.Success || resp.Data is null)
             {
-                Error = resp.Error?.Message ?? "Failed to load product.";
+                Error = FormatProductDetailError(resp.Error);
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 Detail = null;
                 return;
             }
 
             Detail = resp.Data;
+            ApiTraceId = null;
         }
         catch (Exception ex)
         {
             Error = ex.Message;
+            ApiTraceId = null;
             Detail = null;
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private static string FormatProductDetailError(ApiError? err)
+    {
+        if (err is null) return "Ürün detayı yüklenemedi.";
+        return err.Code switch
+        {
+            "unauthorized" => "Oturum süresi dolmuş olabilir. Yeniden giriş yapın.",
+            "forbidden" => "Bu ürüne erişim yetkiniz yok.",
+            _ => err.Message
+        };
     }
 
     [RelayCommand]
@@ -179,7 +226,7 @@ public partial class ProductDetailViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenImagePreview(ProductImage? image)
+    private void OpenImagePreview(ProductImageDto? image)
     {
         if (image is null || string.IsNullOrWhiteSpace(image.Url)) return;
         ImagePreviewUrl = image.Url;
@@ -188,4 +235,3 @@ public partial class ProductDetailViewModel : ObservableObject
     [RelayCommand]
     private void CloseImagePreview() => ImagePreviewUrl = null;
 }
-

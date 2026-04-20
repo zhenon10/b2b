@@ -23,6 +23,35 @@ namespace B2B.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("B2B.Domain.Entities.AdminDealerApprovalIdempotency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AdminUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AdminDealerApproval_Admin_Key");
+
+                    b.ToTable("AdminDealerApprovalIdempotencies", "app");
+                });
+
             modelBuilder.Entity("B2B.Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("CategoryId")
@@ -382,6 +411,44 @@ namespace B2B.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductSpecs", "app");
                 });
 
+            modelBuilder.Entity("B2B.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("RefreshTokenId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("sysutcdatetime()");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RefreshTokenId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RefreshTokens_TokenHash");
+
+                    b.HasIndex("UserId", "RevokedAtUtc", "ExpiresAtUtc")
+                        .HasDatabaseName("IX_RefreshTokens_User_Active");
+
+                    b.ToTable("RefreshTokens", "app");
+                });
+
             modelBuilder.Entity("B2B.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -576,6 +643,17 @@ namespace B2B.Infrastructure.Persistence.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("B2B.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("B2B.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("B2B.Domain.Entities.UserRole", b =>
                 {
                     b.HasOne("B2B.Domain.Entities.Role", "Role")
@@ -626,6 +704,8 @@ namespace B2B.Infrastructure.Persistence.Migrations
                     b.Navigation("OrdersAsSeller");
 
                     b.Navigation("ProductsAsSeller");
+
+                    b.Navigation("RefreshTokens");
 
                     b.Navigation("UserRoles");
                 });

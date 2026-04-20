@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui"
     xmlns:models="clr-namespace:B2B.Mobile.Features.Orders.Models"
     xmlns:local="clr-namespace:B2B.Mobile.Features.Orders.Views"
     x:Name="AdminOrdersPageRoot"
@@ -38,10 +39,9 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <Border Style="{StaticResource Card}" Padding="12"
-                            IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
-                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
-                    </Border>
+                    <ui:ApiErrorBannerView
+                        Message="{Binding Error}"
+                        TraceId="{Binding ErrorTraceId}" />
 
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 
@@ -124,9 +124,7 @@
                             <Label Style="{StaticResource Caption}"
                                    Text="{Binding SelectedDetail.CurrencyCode, StringFormat='Satır birim fiyatları ({0})'}" />
 
-                            <Label Text="{Binding DetailError}"
-                                   TextColor="{StaticResource Error}"
-                                   IsVisible="{Binding DetailError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                            <ui:ApiErrorBannerView Message="{Binding DetailError}" TraceId="{Binding DetailErrorTraceId}" />
 
                             <Label Text="Bu aşamada durum değiştirilemez (kargoda veya iptal)."
                                    Style="{StaticResource Caption}"

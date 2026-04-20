@@ -36,7 +36,7 @@
             </ShellContent.ContentTemplate>
         </ShellContent>
 
-        <ShellContent Title="Sepet" Route="cart">
+        <ShellContent Title="{Binding CartTabTitle}" Route="cart">
             <ShellContent.Icon>
                 <FontImageSource FontFamily="MaterialIcons"
                                  Glyph="&#xE8CC;"

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using B2B.Mobile.Core;
+using B2B.Contracts;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,6 +22,7 @@ public partial class CategoriesFlyoutViewModel : ObservableObject
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
     public CategoriesFlyoutViewModel(
         CategoriesService categories,
         ProductCatalogFilter filter,
@@ -43,12 +46,14 @@ public partial class CategoriesFlyoutViewModel : ObservableObject
     {
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _categories.GetCategoriesAsync(includeInactive: false, CancellationToken.None);
             if (!resp.Success || resp.Data is null)
             {
-                Error = resp.Error?.Message ?? "Kategoriler yüklenemedi.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Kategoriler yüklenemedi.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -64,20 +69,28 @@ public partial class CategoriesFlyoutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SelectCategory(CategoryListItem? item)
+    private async Task SelectCategoryAsync(CategoryListItem? item)
     {
         if (item is null) return;
-        if (item.CategoryId == AllCategoriesId)
-            _filter.SetAll();
-        else
-            _filter.SetCategory(item.CategoryId, item.Name);
+
         Shell.Current.FlyoutIsPresented = false;
+        // Filtre değişimi ProductsPage.OnAppearing içindeki Changed aboneliğinden sonra tetiklenmeli;
+        // aksi halde başka sekmedeyken kategori seçilirse olay kaçırılır ve liste güncellenmez.
+        await Shell.Current.GoToAsync("//main/products", animate: false);
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (item.CategoryId == AllCategoriesId)
+                _filter.SetAll();
+            else
+                _filter.SetCategory(item.CategoryId, item.Name);
+        });
     }
 
     [RelayCommand]
-    private void SelectUncategorized()
+    private async Task SelectUncategorizedAsync()
     {
-        _filter.SetUncategorized();
         Shell.Current.FlyoutIsPresented = false;
+        await Shell.Current.GoToAsync("//main/products", animate: false);
+        await MainThread.InvokeOnMainThreadAsync(() => _filter.SetUncategorized());
     }
 }

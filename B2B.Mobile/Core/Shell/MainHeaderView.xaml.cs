@@ -23,6 +23,15 @@ public partial class MainHeaderView : ContentView
     {
         InitializeComponent();
         var vm = App.Services.GetRequiredService<MainHeaderViewModel>();
+        OfflineBanner.BindingContext = vm;
+        OfflineBanner.SetBinding(
+            IsVisibleProperty,
+            new Binding(nameof(MainHeaderViewModel.IsOffline), mode: BindingMode.OneWay));
+        ConstrainedBanner.BindingContext = vm;
+        ConstrainedBanner.SetBinding(
+            IsVisibleProperty,
+            new Binding(nameof(MainHeaderViewModel.ShowConstrainedHint), mode: BindingMode.OneWay));
+
         UsdLabel.BindingContext = vm;
         UsdLabel.SetBinding(Label.TextProperty, new Binding(nameof(MainHeaderViewModel.UsdTryDisplay)));
 

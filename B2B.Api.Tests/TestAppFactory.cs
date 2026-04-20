@@ -33,6 +33,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Key"] = TestKey,
                 ["Jwt:SigningKey"] = TestKey,
                 ["Jwt:AccessTokenMinutes"] = "60",
+                ["Jwt:RefreshTokenDays"] = "14",
                 // Minimal seed for tests: roles only (Register assigns Dealer role)
                 ["Seed:Mode"] = "RolesOnly",
                 ["Auth:AllowPublicRegistration"] = "true",

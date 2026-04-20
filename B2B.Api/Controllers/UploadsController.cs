@@ -1,5 +1,6 @@
-using B2B.Api.Contracts;
+using B2B.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
@@ -26,7 +27,7 @@ public sealed class UploadsController : ControllerBase
     }
 
     [HttpPost("images")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     [ProducesResponseType(typeof(ApiResponse<UploadImageResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<UploadImageResponse>>> UploadImage([FromForm] IFormFile file, CancellationToken ct)
@@ -73,7 +74,5 @@ public sealed class UploadsController : ControllerBase
         var publicUrl = $"{origin}/uploads/products/{safeName}";
         return Ok(ApiResponse<UploadImageResponse>.Ok(new UploadImageResponse(publicUrl), HttpContext.TraceIdentifier));
     }
-
-    public sealed record UploadImageResponse(string Url);
 }
 

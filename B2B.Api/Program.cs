@@ -1,21 +1,26 @@
-using B2B.Api.Contracts;
+using System.Text;
+using System.Threading.RateLimiting;
+using B2B.Contracts;
 using B2B.Api.Middleware;
 using B2B.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using B2B.Application;
 using B2B.Infrastructure;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Mvc;
-using FluentValidation.AspNetCore;
-using Serilog;
-using NSwag.AspNetCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using B2B.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using FluentValidation;
 using B2B.Api.Infrastructure;
 using B2B.Api.Persistence;
+using B2B.Infrastructure.Persistence;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using NSwag.AspNetCore;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,11 +64,58 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOpenApiDocument(config =>
+
+var enableSwagger = builder.Environment.IsDevelopment()
+    || builder.Configuration.GetValue("Api:EnableSwagger", false);
+if (enableSwagger)
 {
-    config.Title = "B2B API";
-    config.Version = "v1";
-    config.Description = "Mobile-friendly B2B backend API (paginated lists, filtering, standardized envelopes).";
+    builder.Services.AddOpenApiDocument(config =>
+    {
+        config.Title = "B2B API";
+        config.Version = "v1";
+        config.Description = "Mobile-friendly B2B backend API (paginated lists, filtering, standardized envelopes).";
+    });
+}
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddDbContextCheck<B2BDbContext>(
+        name: "sql",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready"]);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", httpContext =>
+    {
+        var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? httpContext.Request.Headers.Host.ToString();
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+    options.OnRejected = async (context, ct) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+
+        context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
+        var traceId = context.HttpContext.TraceIdentifier;
+        var body = ApiResponse<object>.Fail(
+            new ApiError(
+                "rate_limited",
+                "Çok fazla istek. Lütfen kısa süre sonra tekrar deneyin.",
+                null),
+            traceId);
+        await context.HttpContext.Response.WriteAsJsonAsync(body, ct);
+    };
 });
 
 builder.Services.AddApplication();
@@ -98,6 +150,7 @@ builder.Services
 
 builder.Services.AddSingleton<JwtKeyMaterial>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<RefreshTokenService>();
 
 builder.Services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.SectionName);
 
@@ -124,9 +177,31 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json; charset=utf-8";
+                var traceId = context.HttpContext.TraceIdentifier;
+                var body = ApiResponse<object>.Fail(
+                    new ApiError(
+                        "unauthorized",
+                        "Oturum geçersiz veya erişim jetonunun süresi dolmuş.",
+                        null),
+                    traceId);
+                await context.Response.WriteAsJsonAsync(body, context.HttpContext.RequestAborted);
+            }
+        };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, p => p.RequireRole("Admin"));
+    options.AddPolicy(AuthorizationPolicies.DealerOnly, p => p.RequireRole("Dealer"));
+});
 
 var app = builder.Build();
 
@@ -154,12 +229,15 @@ if (applyMigrations || app.Environment.IsEnvironment("Testing"))
 }
 
 // Configure the HTTP request pipeline.
-app.UseOpenApi(o => o.Path = "/swagger/v1/swagger.json");
-app.UseSwaggerUi(settings =>
+if (enableSwagger)
 {
-    settings.Path = "/swagger";
-    settings.DocumentPath = "/swagger/v1/swagger.json";
-});
+    app.UseOpenApi(o => o.Path = "/swagger/v1/swagger.json");
+    app.UseSwaggerUi(settings =>
+    {
+        settings.Path = "/swagger";
+        settings.DocumentPath = "/swagger/v1/swagger.json";
+    });
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
@@ -176,6 +254,17 @@ if (!app.Environment.IsEnvironment("Testing") && !app.Environment.IsDevelopment(
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseRateLimiter();
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready")
+});
 
 app.MapControllers();
 

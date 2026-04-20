@@ -3,45 +3,56 @@
     x:Class="B2B.Mobile.Features.Auth.Views.RegisterPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="Kayıt">
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
+    xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
+    Title="{x:Static str:AppStrings.Register_PageTitle}">
 
     <ScrollView>
         <Grid Padding="24" RowDefinitions="Auto,Auto,*" RowSpacing="18">
             <VerticalStackLayout Grid.Row="0" Spacing="6">
-                <Label Text="Hesap oluştur" Style="{StaticResource TitleLarge}" />
-                <Label Text="Sipariş vermeye başlamak için kayıt olun." Style="{StaticResource Caption}" />
+                <Label Text="{x:Static str:AppStrings.Register_Headline}" Style="{StaticResource TitleLarge}" SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="{x:Static str:AppStrings.Register_Subtitle}" Style="{StaticResource Caption}" />
             </VerticalStackLayout>
 
             <Border Grid.Row="1" Style="{StaticResource Card}" Padding="16">
                 <VerticalStackLayout Spacing="12">
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Görünen ad" Text="{Binding DisplayName}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Register_DisplayNamePlaceholder}"
+                               Text="{Binding DisplayName}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Register_DisplayNamePlaceholder}" />
                     </Border>
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="E-posta" Keyboard="Email" Text="{Binding Email}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Register_EmailPlaceholder}"
+                               Keyboard="Email"
+                               Text="{Binding Email}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Register_EmailPlaceholder}" />
                     </Border>
                     <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Şifre" IsPassword="True" Text="{Binding Password}" />
+                        <Entry Placeholder="{x:Static str:AppStrings.Register_PasswordPlaceholder}"
+                               IsPassword="True"
+                               Text="{Binding Password}"
+                               SemanticProperties.Hint="{x:Static str:AppStrings.Register_PasswordPlaceholder}" />
                     </Border>
                     <Label Style="{StaticResource Caption}"
-                           Text="Şifre: en az 8 karakter; büyük ve küçük harf, rakam ve sembol (!@# vb.) zorunlu."
+                           Text="{x:Static str:AppStrings.Register_PasswordRules}"
                            LineBreakMode="WordWrap" />
 
-                    <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
-                        <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
-                    </Border>
+                    <ui:ApiErrorBannerView Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
 
                     <Border Style="{StaticResource Card}" Padding="12" IsVisible="{Binding SuccessMessage, Converter={StaticResource StringNotNullOrEmptyConverter}}">
                         <VerticalStackLayout Spacing="8">
-                            <Label Text="{Binding SuccessMessage}" />
-                            <Button Text="Giriş sayfasına git" Clicked="OnGoLoginClicked" />
+                            <Label Text="{Binding SuccessMessage}" SemanticProperties.Description="{Binding SuccessMessage}" />
+                            <Button Text="{x:Static str:AppStrings.Register_GoLogin}"
+                                    SemanticProperties.Hint="{x:Static str:AppStrings.Register_GoLoginHint}"
+                                    Clicked="OnGoLoginClicked" />
                         </VerticalStackLayout>
                     </Border>
 
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                         <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
                         <Button Grid.Column="1"
-                                Text="Kayıt ol"
+                                Text="{x:Static str:AppStrings.Register_Submit}"
+                                SemanticProperties.Hint="{x:Static str:AppStrings.Register_SubmitHint}"
                                 Command="{Binding RegisterCommand}"
                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
                     </Grid>

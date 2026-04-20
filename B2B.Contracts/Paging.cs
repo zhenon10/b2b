@@ -1,4 +1,4 @@
-namespace B2B.Api.Contracts;
+namespace B2B.Contracts;
 
 public sealed record PageRequest(
     int Page = 1,
@@ -27,4 +27,3 @@ public sealed record PagedResult<T>(
     IReadOnlyList<T> Items,
     PageMeta Meta
 );
-

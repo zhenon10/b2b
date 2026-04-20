@@ -1,12 +1,13 @@
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
-using B2B.Api.Contracts;
 using B2B.Api.Infrastructure;
+using B2B.Contracts;
 using B2B.Api.Security;
 using B2B.Domain.Entities;
 using B2B.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -18,28 +19,23 @@ public sealed class AuthController : ControllerBase
 {
     private readonly B2BDbContext _db;
     private readonly JwtTokenService _jwt;
+    private readonly RefreshTokenService _refreshTokens;
     private readonly AuthOptions _auth;
 
-    public AuthController(B2BDbContext db, JwtTokenService jwt, IOptions<AuthOptions> authOptions)
+    public AuthController(
+        B2BDbContext db,
+        JwtTokenService jwt,
+        RefreshTokenService refreshTokens,
+        IOptions<AuthOptions> authOptions)
     {
         _db = db;
         _jwt = jwt;
+        _refreshTokens = refreshTokens;
         _auth = authOptions.Value;
     }
 
-    public sealed record RegisterRequest(string Email, string Password, string? DisplayName);
-    public sealed record LoginRequest(string Email, string Password);
-    public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-    public sealed record ProfileResponse(
-        Guid UserId,
-        string Email,
-        string? DisplayName,
-        IReadOnlyList<string> Roles,
-        DateTime? ApprovedAtUtc);
-    public sealed record AuthResponse(string AccessToken);
-    public sealed record RegisterResponse(string? AccessToken, string Message);
-
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<RegisterResponse>>> Register(RegisterRequest request, CancellationToken ct)
     {
         if (!_auth.AllowPublicRegistration)
@@ -90,17 +86,19 @@ public sealed class AuthController : ControllerBase
         if (approvedAt is null)
         {
             return Ok(ApiResponse<RegisterResponse>.Ok(
-                new RegisterResponse(null, pendingMsg),
+                new RegisterResponse(null, pendingMsg, null),
                 HttpContext.TraceId()));
         }
 
         var token = _jwt.CreateAccessToken(user, roles: ["Dealer"]);
+        var refresh = await _refreshTokens.CreateForUserAsync(user.UserId, ct);
         return Ok(ApiResponse<RegisterResponse>.Ok(
-            new RegisterResponse(token, "Kayıt tamamlandı."),
+            new RegisterResponse(token, "Kayıt tamamlandı.", refresh),
             HttpContext.TraceId()));
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> Login(LoginRequest request, CancellationToken ct)
     {
         var email = request.Email.Trim();
@@ -140,7 +138,26 @@ public sealed class AuthController : ControllerBase
             .ToListAsync(ct);
 
         var token = _jwt.CreateAccessToken(user, roles);
-        return Ok(ApiResponse<AuthResponse>.Ok(new AuthResponse(token), HttpContext.TraceId()));
+        var refresh = await _refreshTokens.CreateForUserAsync(user.UserId, ct);
+        return Ok(ApiResponse<AuthResponse>.Ok(new AuthResponse(token, refresh), HttpContext.TraceId()));
+    }
+
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
+    {
+        var rotated = await _refreshTokens.RotateAsync(request.RefreshToken, ct);
+        if (rotated is null)
+        {
+            return Unauthorized(ApiResponse<AuthResponse>.Fail(
+                new ApiError("invalid_refresh", "Yenileme jetonu geçersiz veya süresi dolmuş.", null),
+                HttpContext.TraceId()));
+        }
+
+        var (user, roles, newRefresh) = rotated.Value;
+        var access = _jwt.CreateAccessToken(user, roles);
+        return Ok(ApiResponse<AuthResponse>.Ok(new AuthResponse(access, newRefresh), HttpContext.TraceId()));
     }
 
     [HttpGet("me")]
@@ -180,6 +197,7 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("change-password")]
     [Authorize]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<object>>> ChangePassword(
         [FromBody] ChangePasswordRequest request,
         CancellationToken ct)

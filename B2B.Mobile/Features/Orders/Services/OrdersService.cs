@@ -1,6 +1,6 @@
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Cart.Models;
-using B2B.Mobile.Features.Orders.Models;
 
 namespace B2B.Mobile.Features.Orders.Services;
 
@@ -14,25 +14,6 @@ public sealed class OrdersService
         _api = api;
     }
 
-    public sealed record SubmitOrderRequest(
-        Guid SellerUserId,
-        string CurrencyCode,
-        IReadOnlyList<SubmitOrderItem> Items
-    );
-
-    public sealed record SubmitOrderItem(
-        Guid ProductId,
-        int Quantity
-    );
-
-    public sealed record SubmitOrderResponse(
-        Guid OrderId,
-        long OrderNumber,
-        decimal GrandTotal
-    );
-
-    // Backend endpoint expected:
-    // - POST /api/v1/orders
     public Task<ApiResponse<SubmitOrderResponse>> SubmitOrderAsync(
         Guid sellerUserId,
         string currencyCode,
@@ -46,7 +27,6 @@ public sealed class OrdersService
             lines.Select(x => new SubmitOrderItem(x.ProductId, x.Quantity)).ToList()
         );
 
-        // Mobile retry safety: same idempotency key returns same order.
         Dictionary<string, string>? headers = null;
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
@@ -56,7 +36,7 @@ public sealed class OrdersService
             };
         }
 
-        return OrderTransientRetry.ExecuteAsync(
+        return ApiTransientRetry.ExecuteAsync(
             () => _api.PostAsync<SubmitOrderRequest, SubmitOrderResponse>("/api/v1/orders", req, headers, ct),
             ct);
     }
@@ -67,18 +47,16 @@ public sealed class OrdersService
         CancellationToken ct = default)
     {
         var url = $"/api/v1/orders?page={page}&pageSize={pageSize}";
-        return OrderTransientRetry.ExecuteAsync(() => _api.GetAsync<PagedResult<DealerOrderListItem>>(url, ct), ct);
+        return ApiTransientRetry.ExecuteAsync(() => _api.GetAsync<PagedResult<DealerOrderListItem>>(url, ct), ct);
     }
 
     public Task<ApiResponse<DealerOrderDetail>> GetMyOrderDetailAsync(Guid orderId, CancellationToken ct) =>
-        OrderTransientRetry.ExecuteAsync(
+        ApiTransientRetry.ExecuteAsync(
             () => _api.GetAsync<DealerOrderDetail>($"/api/v1/orders/{orderId}", ct),
             ct);
 
-    /// <summary>Bayi sipariş iptali (sunucu uygun aşamalarda).</summary>
     public Task<ApiResponse<object>> CancelMyOrderAsync(Guid orderId, CancellationToken ct) =>
-        OrderTransientRetry.ExecuteAsync(
+        ApiTransientRetry.ExecuteAsync(
             () => _api.PostAsync<object>($"/api/v1/orders/{orderId}/cancel", ct),
             ct);
 }
-

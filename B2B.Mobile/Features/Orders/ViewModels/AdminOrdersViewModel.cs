@@ -1,7 +1,8 @@
 using System.Collections.ObjectModel;
+using B2B.Contracts;
+using B2B.Domain.Enums;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Orders;
-using B2B.Mobile.Features.Orders.Models;
 using B2B.Mobile.Features.Orders.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,11 +22,13 @@ public partial class AdminOrdersViewModel : ObservableObject
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? errorTraceId;
     [ObservableProperty] private int page = 1;
     [ObservableProperty] private long totalCount;
     [ObservableProperty] private AdminOrderDetail? selectedDetail;
     [ObservableProperty] private NextStatusOption? selectedNextStatusOption;
     [ObservableProperty] private string? detailError;
+    [ObservableProperty] private string? detailErrorTraceId;
     [ObservableProperty] private bool hasSelectedDetail;
     /// <summary>Filtre: boş = tümü, aksi halde durum sayısı (0–4).</summary>
     [ObservableProperty] private string statusFilter = "";
@@ -59,10 +62,11 @@ public partial class AdminOrdersViewModel : ObservableObject
     public bool CanSaveDetailStatus =>
         SelectedDetail is not null
         && SelectedNextStatusOption is not null
-        && SelectedNextStatusOption.Value != SelectedDetail.Status;
+        && SelectedNextStatusOption.Value != (int)SelectedDetail.Status;
 
     public bool CanEditOrderStatus =>
-        SelectedDetail is not null && SelectedDetail.Status is not 3 and not 4;
+        SelectedDetail is not null
+        && SelectedDetail.Status is not OrderStatus.Shipped and not OrderStatus.Cancelled;
 
     partial void OnSelectedDetailChanged(AdminOrderDetail? value)
     {
@@ -76,7 +80,7 @@ public partial class AdminOrdersViewModel : ObservableObject
 
     /// <summary>Detay başlığı altında gösterilen durum metni.</summary>
     public string DetailStatusLine =>
-        SelectedDetail is { } d ? $"Durum: {StatusLabel(d.Status)}" : "";
+        SelectedDetail is { } d ? $"Durum: {StatusLabel((int)d.Status)}" : "";
 
     public string DetailGrandTotalLine =>
         SelectedDetail is { } d ? $"Toplam: {d.GrandTotal:0.##} {d.CurrencyCode}" : "";
@@ -131,6 +135,7 @@ public partial class AdminOrdersViewModel : ObservableObject
         if (showGlobalBusy)
             IsBusy = true;
         Error = null;
+        ErrorTraceId = null;
         try
         {
             int? st = string.IsNullOrWhiteSpace(StatusFilter) ? null : int.Parse(StatusFilter);
@@ -138,6 +143,7 @@ public partial class AdminOrdersViewModel : ObservableObject
             if (!resp.Success || resp.Data is null)
             {
                 Error = FormatAdminApiError(resp.Error) ?? resp.Error?.Message ?? "Siparişler yüklenemedi.";
+                ErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 Items.Clear();
                 TotalCount = 0;
                 return;
@@ -161,6 +167,7 @@ public partial class AdminOrdersViewModel : ObservableObject
     {
         if (item is null) return;
         DetailError = null;
+        DetailErrorTraceId = null;
         IsBusy = true;
         try
         {
@@ -168,12 +175,14 @@ public partial class AdminOrdersViewModel : ObservableObject
             if (!resp.Success || resp.Data is null)
             {
                 DetailError = FormatAdminApiError(resp.Error) ?? "Detay yüklenemedi.";
+                DetailErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 SelectedDetail = null;
                 return;
             }
 
             SelectedDetail = resp.Data;
             DetailError = null;
+            DetailErrorTraceId = null;
         }
         finally
         {
@@ -187,7 +196,7 @@ public partial class AdminOrdersViewModel : ObservableObject
         SelectedNextStatusOption = null;
         if (SelectedDetail is null) return;
 
-        var cur = SelectedDetail.Status;
+        var cur = (int)SelectedDetail.Status;
         NextStatusOptions.Add(new NextStatusOption(cur, $"{StatusLabel(cur)} (mevcut)"));
         foreach (var x in AllowedNextStatuses(cur))
             NextStatusOptions.Add(new NextStatusOption(x.Value, x.Label));
@@ -200,16 +209,18 @@ public partial class AdminOrdersViewModel : ObservableObject
     {
         SelectedDetail = null;
         DetailError = null;
+        DetailErrorTraceId = null;
     }
 
     [RelayCommand]
     private async Task SaveStatusAsync()
     {
-        if (SelectedDetail is null || SelectedNextStatusOption is null || SelectedNextStatusOption.Value == SelectedDetail.Status)
+        if (SelectedDetail is null || SelectedNextStatusOption is null || SelectedNextStatusOption.Value == (int)SelectedDetail.Status)
             return;
         var orderId = SelectedDetail.OrderId;
         var newStatus = SelectedNextStatusOption.Value;
         DetailError = null;
+        DetailErrorTraceId = null;
         IsBusy = true;
         try
         {
@@ -217,6 +228,7 @@ public partial class AdminOrdersViewModel : ObservableObject
             if (!resp.Success)
             {
                 DetailError = FormatAdminApiError(resp.Error) ?? "Durum güncellenemedi.";
+                DetailErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 

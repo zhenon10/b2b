@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using B2B.Mobile.Core.Security;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace B2B.Mobile;
 
@@ -20,7 +21,7 @@ public partial class App : Application
                 if (ex is null) return;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.DisplayAlert("Beklenmeyen hata", ex.Message, "Tamam");
+                    await ShowUnexpectedErrorAlertAsync(ex.Message);
                 });
             }
             catch { }
@@ -33,7 +34,7 @@ public partial class App : Application
                 var ex = e.Exception;
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await Shell.Current.DisplayAlert("Beklenmeyen hata", ex.Message, "Tamam");
+                    await ShowUnexpectedErrorAlertAsync(ex.Message);
                 });
                 e.SetObserved();
             }
@@ -41,8 +42,31 @@ public partial class App : Application
         };
 	}
 
+    protected override void OnAppLinkRequestReceived(Uri uri)
+    {
+        base.OnAppLinkRequestReceived(uri);
+        _ = AppLinkHandler.TryNavigateFromUriAsync(uri, Services);
+    }
+
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		return new Window(Services.GetRequiredService<AppShell>());
+        var window = new Window(Services.GetRequiredService<AppShell>());
+        var resumeLock = Services.GetRequiredService<AppResumeLockService>();
+        window.Deactivated += (_, _) => resumeLock.MarkPaused();
+        window.Resumed += (_, _) => _ = resumeLock.OnAppResumedAsync();
+		return window;
 	}
+
+    private static async Task ShowUnexpectedErrorAlertAsync(string message)
+    {
+        if (Shell.Current is { } shell)
+        {
+            await shell.DisplayAlert("Beklenmeyen hata", message, "Tamam");
+            return;
+        }
+
+        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
+        if (page is not null)
+            await page.DisplayAlert("Beklenmeyen hata", message, "Tamam");
+    }
 }

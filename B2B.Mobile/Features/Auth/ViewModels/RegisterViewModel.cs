@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core;
 using B2B.Mobile.Features.Auth.Services;
 
@@ -21,6 +22,7 @@ public partial class RegisterViewModel : ObservableObject
     [ObservableProperty] private string? displayName;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
     [ObservableProperty] private string? successMessage;
 
     [RelayCommand]
@@ -29,6 +31,7 @@ public partial class RegisterViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         SuccessMessage = null;
 
         try
@@ -36,7 +39,8 @@ public partial class RegisterViewModel : ObservableObject
             var resp = await _auth.RegisterAsync(Email.Trim(), Password, DisplayName, CancellationToken.None);
             if (!resp.Success)
             {
-                Error = resp.Error?.Message ?? "Kayıt başarısız.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Kayıt başarısız.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 

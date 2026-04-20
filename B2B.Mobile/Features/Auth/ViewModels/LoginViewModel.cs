@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core;
 using B2B.Mobile.Core.Auth;
 using B2B.Mobile.Features.Auth.Services;
@@ -35,6 +36,7 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty] private bool rememberMe;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
     /// <summary>401 sonrası vb. tek seferlik bilgi (hata değil).</summary>
     [ObservableProperty] private string? infoBanner;
 
@@ -48,6 +50,7 @@ public partial class LoginViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         InfoBanner = null;
 
         try
@@ -55,7 +58,8 @@ public partial class LoginViewModel : ObservableObject
             var resp = await _auth.LoginAsync(Email.Trim(), Password, CancellationToken.None);
             if (!resp.Success)
             {
-                Error = resp.Error?.Message ?? "Giriş başarısız.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Giriş başarısız.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using B2B.Mobile.Core;
+using B2B.Contracts;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,6 +18,7 @@ public partial class CategoryAdminViewModel : ObservableObject
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
 
     public CategoryAdminViewModel(CategoriesService categories, CatalogNotifications catalogEvents)
     {
@@ -28,12 +31,14 @@ public partial class CategoryAdminViewModel : ObservableObject
     {
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _categories.GetCategoriesAsync(includeInactive: true, CancellationToken.None);
             if (!resp.Success || resp.Data is null)
             {
-                Error = resp.Error?.Message ?? "Kategoriler yüklenemedi.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Kategoriler yüklenemedi.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -71,12 +76,14 @@ public partial class CategoryAdminViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _categories.DeleteCategoryAsync(item.CategoryId, CancellationToken.None);
             if (!resp.Success)
             {
-                Error = resp.Error?.Message ?? "Silinemedi.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Silinemedi.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 

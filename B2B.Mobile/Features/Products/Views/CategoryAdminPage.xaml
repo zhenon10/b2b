@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:B2B.Mobile.Features.Products.ViewModels"
     xmlns:models="clr-namespace:B2B.Mobile.Features.Products.Models"
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
     x:DataType="vm:CategoryAdminViewModel"
     Title="Kategori yönetimi">
 
@@ -54,12 +55,6 @@
             </CollectionView>
         </RefreshView>
 
-        <Border Grid.Row="2"
-                Padding="12"
-                BackgroundColor="{AppThemeBinding Light=#FFF3CD, Dark=#3D3500}"
-                StrokeThickness="0"
-                IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
-            <Label Text="{Binding Error}" TextColor="{StaticResource Error}" />
-        </Border>
+        <ui:ApiErrorBannerView Grid.Row="2" Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
     </Grid>
 </ContentPage>

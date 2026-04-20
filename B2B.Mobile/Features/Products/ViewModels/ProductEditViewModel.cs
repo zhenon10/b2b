@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using B2B.Contracts;
+using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
@@ -31,6 +33,7 @@ public partial class ProductEditViewModel : ObservableObject
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? error;
+    [ObservableProperty] private string? apiTraceId;
 
     [ObservableProperty] private string sku = "";
     [ObservableProperty] private string name = "";
@@ -53,6 +56,7 @@ public partial class ProductEditViewModel : ObservableObject
     private async Task LoadAsync()
     {
         Error = null;
+        ApiTraceId = null;
         CanDeleteProduct = false;
         Images.Clear();
         Specs.Clear();
@@ -97,7 +101,8 @@ public partial class ProductEditViewModel : ObservableObject
             var resp = await _products.GetProductAsync(id, CancellationToken.None);
             if (!resp.Success || resp.Data is null)
             {
-                Error = resp.Error?.Message ?? "Failed to load product.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Ürün yüklenemedi.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -148,12 +153,14 @@ public partial class ProductEditViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _products.DeactivateProductAsync(id, CancellationToken.None);
             if (!resp.Success)
             {
-                Error = resp.Error?.Message ?? "Ürün kaldırılamadı.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Ürün kaldırılamadı.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -180,7 +187,7 @@ public partial class ProductEditViewModel : ObservableObject
         {
             if (!MediaPicker.Default.IsCaptureSupported)
             {
-                Error = "Camera capture is not supported on this device.";
+                Error = "Bu cihazda kamera ile fotoğraf çekimi desteklenmiyor.";
                 return;
             }
 
@@ -216,12 +223,14 @@ public partial class ProductEditViewModel : ObservableObject
     {
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
         try
         {
             var resp = await _uploads.UploadProductImageAsync(file, CancellationToken.None);
             if (!resp.Success || string.IsNullOrWhiteSpace(resp.Data))
             {
-                Error = resp.Error?.Message ?? "Upload failed.";
+                Error = UserFacingApiMessage.Message(resp.Error, "Yükleme başarısız.");
+                ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                 return;
             }
 
@@ -248,6 +257,7 @@ public partial class ProductEditViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         Error = null;
+        ApiTraceId = null;
 
         try
         {
@@ -256,7 +266,7 @@ public partial class ProductEditViewModel : ObservableObject
 
             var images = Images
                 .Where(i => !string.IsNullOrWhiteSpace(i.Url))
-                .Select((i, idx) => new ProductsService.ProductImageInput((i.Url ?? "").Trim(), idx, i.IsPrimary))
+                .Select((i, idx) => new ProductImageInput((i.Url ?? "").Trim(), idx, i.IsPrimary))
                 .ToList();
 
             // Ensure single primary
@@ -268,12 +278,12 @@ public partial class ProductEditViewModel : ObservableObject
 
             var specs = Specs
                 .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
-                .Select((s, idx) => new ProductsService.ProductSpecInput((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), idx))
+                .Select((s, idx) => new ProductSpecInput((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), idx))
                 .ToList();
 
             if (!Guid.TryParse(ProductId, out var id))
             {
-                var resp = await _products.CreateProductAsync(new ProductsService.CreateProductRequest(
+                var resp = await _products.CreateProductAsync(new CreateProductRequest(
                     SellerUserId: null,
                     CategoryId: SelectedCategory?.CategoryId,
                     Sku: Sku.Trim(),
@@ -290,13 +300,14 @@ public partial class ProductEditViewModel : ObservableObject
 
                 if (!resp.Success)
                 {
-                    Error = resp.Error?.Message ?? "Create failed.";
+                    Error = UserFacingApiMessage.Message(resp.Error, "Oluşturma başarısız.");
+                    ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                     return;
                 }
             }
             else
             {
-                var resp = await _products.UpdateProductAsync(id, new ProductsService.UpdateProductRequest(
+                var resp = await _products.UpdateProductAsync(id, new UpdateProductRequest(
                     Sku: Sku.Trim(),
                     Name: Name.Trim(),
                     Description: string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
@@ -312,7 +323,8 @@ public partial class ProductEditViewModel : ObservableObject
 
                 if (!resp.Success)
                 {
-                    Error = resp.Error?.Message ?? "Update failed.";
+                    Error = UserFacingApiMessage.Message(resp.Error, "Güncelleme başarısız.");
+                    ApiTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
                     return;
                 }
             }

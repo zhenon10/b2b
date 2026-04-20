@@ -1,5 +1,5 @@
+using B2B.Contracts;
 using B2B.Mobile.Core.Api;
-using B2B.Mobile.Features.Auth.Models;
 
 namespace B2B.Mobile.Features.Auth.Services;
 
@@ -10,8 +10,15 @@ public sealed class AdminUsersService
     public AdminUsersService(ApiClient api) => _api = api;
 
     public Task<ApiResponse<List<PendingDealerDto>>> GetPendingDealersAsync(CancellationToken ct) =>
-        _api.GetAsync<List<PendingDealerDto>>("/api/v1/admin/users/pending-dealers", ct);
+        ApiTransientRetry.ExecuteAsync(
+            () => _api.GetAsync<List<PendingDealerDto>>("/api/v1/admin/users/pending-dealers", ct),
+            ct);
 
-    public Task<ApiResponse<object>> ApproveDealerAsync(Guid userId, CancellationToken ct) =>
-        _api.PostAsync<object>($"/api/v1/admin/users/{userId:D}/approve", ct);
+    public Task<ApiResponse<object>> ApproveDealerAsync(Guid userId, string idempotencyKey, CancellationToken ct) =>
+        ApiTransientRetry.ExecuteAsync(
+            () => _api.PostAsync<object>(
+                $"/api/v1/admin/users/{userId:D}/approve",
+                new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey },
+                ct),
+            ct);
 }

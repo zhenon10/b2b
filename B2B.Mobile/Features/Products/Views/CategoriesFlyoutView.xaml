@@ -6,6 +6,7 @@
     xmlns:vm="clr-namespace:B2B.Mobile.Features.Products.ViewModels"
     xmlns:models="clr-namespace:B2B.Mobile.Features.Products.Models"
     xmlns:views="clr-namespace:B2B.Mobile.Features.Products.Views"
+    xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
     x:Name="FlyoutRoot"
     x:DataType="vm:CategoriesFlyoutViewModel">
 
@@ -14,9 +15,6 @@
             <Label Text="Kategoriler" Style="{StaticResource Title2}" />
             <Label Text="Listeyi daraltmak için bir kategori seçin."
                    Style="{StaticResource Caption}" />
-            <Button Text="Kategorisiz ürünler"
-                    Style="{StaticResource SecondaryButton}"
-                    Command="{Binding SelectUncategorizedCommand}" />
         </VerticalStackLayout>
 
         <CollectionView Grid.Row="1" ItemsSource="{Binding Categories}" SelectionMode="None">
@@ -45,9 +43,6 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <Label Grid.Row="2"
-               Text="{Binding Error}"
-               TextColor="{StaticResource Error}"
-               IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+        <ui:ApiErrorBannerView Grid.Row="2" Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
     </Grid>
 </ContentView>

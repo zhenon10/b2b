@@ -49,6 +49,14 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 	</PropertyGroup>
 
+	<!-- Fast Deployment: VS/debug deploy pushes managed DLLs to files/.__override__ on device.
+	     adb install yalnızca APK kopyalar; bu klasör boş kalır ve uygulama anında SIGABRT ile çıkar.
+	     Sideload / kablosuz yükleme için derlemeleri APK içine göm. -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<AndroidUseFastDeployment>false</AndroidUseFastDeployment>
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
@@ -71,6 +79,11 @@
 		<None Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Condition="'$(Configuration)'=='Debug'" />
 		<None Include="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" Condition="'$(Configuration)'=='Release'" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\B2B.Contracts\B2B.Contracts.csproj" />
+		<ProjectReference Include="..\B2B.Domain\B2B.Domain.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
