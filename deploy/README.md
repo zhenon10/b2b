@@ -120,3 +120,27 @@ sudo systemctl start b2b-mssql-backup.service
 ls -la /opt/b2b/backups
 ```
 
+### 3) İkinci kopya (rsync mirror) — önerilir
+
+Evde tek disk kullanıyorsanız `/opt/b2b/backups` tek başına yeterli değildir. İkinci bir disk/NAS mount ederek yedekleri oraya da kopyalayın.
+
+Varsayılan hedef: `/mnt/backup/b2b` (değiştirmek için timer/service içinde `DEST=` env’i set edebilirsiniz).
+
+Kurulum:
+```bash
+cd /opt/b2b
+sudo chmod +x deploy/scripts/mirror_backups.sh
+
+sudo cp deploy/systemd/b2b-backup-mirror.service /etc/systemd/system/b2b-backup-mirror.service
+sudo cp deploy/systemd/b2b-backup-mirror.timer /etc/systemd/system/b2b-backup-mirror.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now b2b-backup-mirror.timer
+systemctl list-timers | grep b2b-backup-mirror
+```
+
+Manuel test:
+```bash
+sudo systemctl start b2b-backup-mirror.service
+ls -la /mnt/backup/b2b
+```
+

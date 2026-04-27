@@ -1,0 +1,10 @@
+[Unit]
+Description=Mirror B2B backups to second location
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/b2b
+ExecStart=/opt/b2b/deploy/scripts/mirror_backups.sh
+
