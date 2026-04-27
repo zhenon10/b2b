@@ -1,0 +1,75 @@
+name: mobile-release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  android:
+    name: android (signed aab+apk)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Restore
+        run: dotnet restore ./B2B.Mobile/B2B.Mobile.csproj
+
+      - name: Decode keystore
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+
+      - name: Publish (Release)
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: >
+          dotnet publish ./B2B.Mobile/B2B.Mobile.csproj
+          -f net10.0-android
+          -c Release
+          -p:AndroidPackageFormat=aab
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore="${{ env.ANDROID_KEYSTORE_PATH }}"
+          -p:AndroidSigningStorePass="${{ env.ANDROID_KEYSTORE_PASSWORD }}"
+          -p:AndroidSigningKeyAlias="${{ env.ANDROID_KEY_ALIAS }}"
+          -p:AndroidSigningKeyPass="${{ env.ANDROID_KEY_PASSWORD }}"
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p out
+          cp -v ./B2B.Mobile/bin/Release/net10.0-android/publish/*Signed.aab out/ || true
+          cp -v ./B2B.Mobile/bin/Release/net10.0-android/publish/*Signed.apk out/ || true
+          ls -la out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ github.ref_name }}
+          path: out/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+
