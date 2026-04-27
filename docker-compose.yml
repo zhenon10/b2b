@@ -18,6 +18,9 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:8080
       ConnectionStrings__SqlServer: ${CONNECTIONSTRINGS__SQLSERVER}
       Jwt__SigningKey: ${JWT__SIGNINGKEY}
+      Auth__AllowPublicRegistration: ${AUTH__ALLOWPUBLICREGISTRATION:-false}
+      Auth__AllowPublicRegistrationInProduction: ${AUTH__ALLOWPUBLICREGISTRATIONINPRODUCTION:-false}
+      Auth__AutoApproveRegisteredDealers: ${AUTH__AUTOAPPROVEREGISTEREDDEALERS:-false}
       ObjectStorage__Provider: ${OBJECTSTORAGE__PROVIDER:-Local}
       ObjectStorage__PublicBaseUrl: ${OBJECTSTORAGE__PUBLICBASEURL:-}
       Api__PublicBaseUrl: ${API__PUBLICBASEURL:-}

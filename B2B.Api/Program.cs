@@ -314,8 +314,14 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
     if (GetBool(app.Configuration, "Database:ApplyMigrationsOnStartup"))
         throw new InvalidOperationException("Database:ApplyMigrationsOnStartup must be false outside Development/Testing.");
 
-    if (GetBool(app.Configuration, "Auth:AllowPublicRegistration"))
-        throw new InvalidOperationException("Auth:AllowPublicRegistration must be false outside Development/Testing.");
+    // Public registration is a high-risk production setting. Allow it only when explicitly acknowledged
+    // via Auth:AllowPublicRegistrationInProduction=true (e.g., for controlled rollouts).
+    var allowReg = GetBool(app.Configuration, "Auth:AllowPublicRegistration");
+    var allowRegInProd = GetBool(app.Configuration, "Auth:AllowPublicRegistrationInProduction");
+    if (allowReg && !allowRegInProd)
+        throw new InvalidOperationException(
+            "Auth:AllowPublicRegistration is enabled, but Auth:AllowPublicRegistrationInProduction is not. " +
+            "Set Auth:AllowPublicRegistrationInProduction=true to explicitly acknowledge the risk.");
 
     if (GetBool(app.Configuration, "Api:EnableSwagger"))
         throw new InvalidOperationException("Api:EnableSwagger must be false outside Development/Testing.");
