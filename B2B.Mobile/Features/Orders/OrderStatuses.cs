@@ -5,10 +5,10 @@ public static class OrderStatuses
 {
     public static string ToTrLabel(int s) => s switch
     {
-        0 => "Taslak",
-        1 => "Verildi",
-        2 => "Ödendi",
-        3 => "Kargoda",
+        0 => "Sipariş Alındı",
+        1 => "Onaylandı",
+        2 => "Kargoda",
+        3 => "Tamamlandı",
         4 => "İptal",
         _ => s.ToString()
     };

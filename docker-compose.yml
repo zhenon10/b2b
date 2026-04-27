@@ -18,7 +18,12 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:8080
       ConnectionStrings__SqlServer: ${CONNECTIONSTRINGS__SQLSERVER}
       Jwt__SigningKey: ${JWT__SIGNINGKEY}
-      ObjectStorage__Provider: Local
+      ObjectStorage__Provider: ${OBJECTSTORAGE__PROVIDER:-Local}
+      ObjectStorage__PublicBaseUrl: ${OBJECTSTORAGE__PUBLICBASEURL:-}
+      Api__PublicBaseUrl: ${API__PUBLICBASEURL:-}
+      Cors__AllowedOrigins__0: ${CORS__ALLOWEDORIGINS__0:-}
+      Cors__AllowedOrigins__1: ${CORS__ALLOWEDORIGINS__1:-}
+      Cors__AllowedOrigins__2: ${CORS__ALLOWEDORIGINS__2:-}
     ports:
       - "8080:8080"
     volumes:

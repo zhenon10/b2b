@@ -369,11 +369,21 @@ if (enableCors)
 
 app.UseStaticFiles();
 
-// Mobile devices on local Wi‑Fi typically can't trust dev HTTPS certs.
-// Keep HTTPS redirection for non-dev environments.
-if (!app.Environment.IsEnvironment("Testing") && !app.Environment.IsDevelopment())
+// Only enable HTTPS redirection when the app itself is configured to speak HTTPS.
+// In IP-only / reverse-proxy-terminated setups (HTTP between proxy and app), enabling this causes noisy logs:
+// "Failed to determine the https port for redirect."
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    app.UseHttpsRedirection();
+    var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "";
+    var hasHttpsUrl = urls
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Any(u => u.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+
+    var httpsPort = Environment.GetEnvironmentVariable("ASPNETCORE_HTTPS_PORT");
+    var hasHttpsPort = !string.IsNullOrWhiteSpace(httpsPort);
+
+    if (hasHttpsUrl || hasHttpsPort)
+        app.UseHttpsRedirection();
 }
 
 app.UseAuthentication();

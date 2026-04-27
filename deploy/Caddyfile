@@ -1,0 +1,9 @@
+:80 {
+  respond "B2B API is up (HTTP). Configure a domain for HTTPS." 200
+}
+
+# Example (HTTPS):
+# api.example.com {
+#   reverse_proxy api:8080
+# }
+

@@ -28,8 +28,10 @@ public sealed class AdminOrdersService
             ct);
 
     public Task<ApiResponse<object>> UpdateStatusAsync(Guid orderId, int status, CancellationToken ct) =>
-        _api.PatchAsync<UpdateOrderStatusRequest, object>(
-            $"/api/v1/orders/{orderId}/status",
-            new UpdateOrderStatusRequest((OrderStatus)status),
+        ApiTransientRetry.ExecuteAsync(
+            () => _api.PatchAsync<UpdateOrderStatusRequest, object>(
+                $"/api/v1/orders/{orderId}/status",
+                new UpdateOrderStatusRequest((OrderStatus)status),
+                ct),
             ct);
 }

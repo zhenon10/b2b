@@ -38,7 +38,7 @@ public static class ApiBaseUrlResolver
             return fromCfg;
 
 #if DEBUG
-        return Normalize("http://192.168.2.115:5237");
+        return Normalize("http://100.125.160.95:8080");
 #else
         throw new InvalidOperationException(
             "Api:BaseUrl yapılandırılmadı. appsettings.Production.json, ortam B2B_API_BASE veya B2B__Api__BaseUrl, ya da Android meta-data kullanın.");

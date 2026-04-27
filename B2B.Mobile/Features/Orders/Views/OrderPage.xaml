@@ -112,7 +112,7 @@
                          IsVisible="{Binding IsHistoryPanel}"
                          IsRefreshing="{Binding IsHistoryRefreshing}"
                          Command="{Binding RefreshHistoryCommand}">
-                <ScrollView>
+                <ScrollView x:Name="HistoryScroll">
                     <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
                         <VerticalStackLayout Spacing="6">
                             <Label Text="Sipariş geçmişi" Style="{StaticResource Title}" />
@@ -151,6 +151,11 @@
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="models:DealerOrderListItem">
                                     <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,8">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding BindingContext.SelectHistoryOrderCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
                                         <Grid Padding="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                                             <Label Grid.Row="0" Grid.Column="0" FontAttributes="Bold" Text="{Binding OrderNumber, StringFormat='Sipariş #{0}'}" />
                                             <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="4" VerticalOptions="Start">
@@ -192,7 +197,10 @@
                                     IsEnabled="{Binding CanHistoryNext}" />
                         </Grid>
 
-                        <Border IsVisible="{Binding HasHistoryDetail}" Style="{StaticResource Card}" Padding="12">
+                        <Border x:Name="HistoryDetailCard"
+                                IsVisible="{Binding HasHistoryDetail}"
+                                Style="{StaticResource Card}"
+                                Padding="12">
                             <VerticalStackLayout Spacing="10">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <Label FontAttributes="Bold"

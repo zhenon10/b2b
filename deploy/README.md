@@ -4,7 +4,7 @@ Bu repo `net10.0` kullandığı için VPS’de en pratik yayınlama yöntemi Doc
 
 ### 0) Ön koşullar
 - Sunucuda Docker + Compose plugin
-- Sunucuda Tailscale (uzaktan erişim için)
+- (Opsiyonel) Sunucuda Tailscale (private erişim için)
 
 ### 1) Sunucuda repo’yu klonla
 ```bash
@@ -25,6 +25,10 @@ En az şu 3 değer dolu olmalı:
 - `CONNECTIONSTRINGS__SQLSERVER`
 - `JWT__SIGNINGKEY`
 
+İsteğe bağlı ama prod’da önerilir:
+- `API__PUBLICBASEURL` (mutlak URL üretimi için)
+- `CORS__ALLOWEDORIGINS__0..2` (browser tabanlı istemciler için)
+
 ### 3) Servisleri ayağa kaldır
 ```bash
 docker compose up -d --build
@@ -33,18 +37,48 @@ docker compose logs -f api
 ```
 
 ### 4) Erişim
-- Tailscale IP’nizi bulun:
+- Eğer public IP ile gidecekseniz:
+  - API: `http://<VPS_PUBLIC_IP>:8080`
+- Tailscale ile private erişim isterseniz Tailscale IP’nizi bulun:
 ```bash
 tailscale ip -4
 ```
-- API:
-  - `http://<TAILSCALE_IP>:8080`
+  - API: `http://<TAILSCALE_IP>:8080`
 - Health:
   - `http://<TAILSCALE_IP>:8080/health`
   - `http://<TAILSCALE_IP>:8080/health/ready`
+
+### 5) Public IP ile önerilen env değerleri
+`.env` içinde aşağıdakileri public IP’ye göre ayarlayın:
+- `API__PUBLICBASEURL=http://<VPS_PUBLIC_IP>:8080`
+- Eğer upload URL’lerinin absolute dönmesini istiyorsanız (Local provider):
+  - `OBJECTSTORAGE__PUBLICBASEURL=http://<VPS_PUBLIC_IP>:8080/uploads`
+- Browser tabanlı bir istemciniz varsa ilgili origin’i ekleyin:
+  - `CORS__ALLOWEDORIGINS__0=https://...` veya `http://...`
 
 ### Notlar
 - Upload dosyaları `b2b_uploads` volume’unda kalıcıdır (`/app/wwwroot/uploads`).
 - DB `b2b_mssql` volume’unda kalıcıdır.
 - Prod guardrail’ları nedeniyle `Seed:Mode`, `Database:ApplyMigrationsOnStartup`, `Api:EnableSwagger` gibi ayarları Production’da açmayın.
+
+## Domain + SSL (opsiyonel)
+
+Domain ile yayınlamak istiyorsanız genelde en rahat yöntem reverse proxy (Caddy/Nginx) ile 80/443’ten API’ye yönlendirmektir.
+Bu repo, API’yi container içinde `:8080`’de çalıştıracak şekilde ayarlı; proxy 443’ten terminasyon yapıp içeriye proxy’ler.
+
+### Caddy ile hızlı kurulum (önerilir)
+
+1) DNS’te bir A kaydı oluşturun (ör. `api.example.com` -> VPS public IP)
+
+2) `deploy/Caddyfile` içinde domain’i açın:
+- `api.example.com { reverse_proxy api:8080 }`
+
+3) Compose’u iki dosya ile başlatın:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+docker compose ps
+docker compose logs -f caddy
+```
+
+Not: Caddy, Let’s Encrypt ile otomatik sertifika alır; VPS’in 80/443 portları açık olmalı.
 

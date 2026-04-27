@@ -14,10 +14,11 @@ public partial class AdminOrdersViewModel : ObservableObject
     private const int PageSize = 20;
     private readonly AdminOrdersService _orders;
     private DateTime? _lastListSuccessUtc;
+    private readonly SemaphoreSlim _listRefreshGate = new(1, 1);
 
     public sealed record NextStatusOption(int Value, string Label);
 
-    public ObservableCollection<AdminOrderListItem> Items { get; } = new();
+    public ObservableCollection<AdminOrderRowVm> Items { get; } = new();
     public ObservableCollection<NextStatusOption> NextStatusOptions { get; } = new();
 
     [ObservableProperty] private bool isBusy;
@@ -30,6 +31,8 @@ public partial class AdminOrdersViewModel : ObservableObject
     [ObservableProperty] private string? detailError;
     [ObservableProperty] private string? detailErrorTraceId;
     [ObservableProperty] private bool hasSelectedDetail;
+    /// <summary>Kısa süreli kullanıcı geri bildirimi (toast/snackbar).</summary>
+    [ObservableProperty] private string? toastMessage;
     /// <summary>Filtre: boş = tümü, aksi halde durum sayısı (0–4).</summary>
     [ObservableProperty] private string statusFilter = "";
 
@@ -46,7 +49,13 @@ public partial class AdminOrdersViewModel : ObservableObject
 
     public bool CanGoNext => Page < TotalPages;
 
-    public AdminOrdersViewModel(AdminOrdersService orders) => _orders = orders;
+    public bool HasItems => Items.Count > 0;
+
+    public AdminOrdersViewModel(AdminOrdersService orders)
+    {
+        _orders = orders;
+        Items.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasItems));
+    }
 
     /// <summary>
     /// Son başarılı listeden bu yana <paramref name="maxAge"/> aşıldıysa yeniler.
@@ -118,6 +127,7 @@ public partial class AdminOrdersViewModel : ObservableObject
     private async Task PullToRefreshAsync()
     {
         if (IsListRefreshing) return;
+        if (IsBusy) return;
         IsListRefreshing = true;
         try
         {
@@ -132,6 +142,9 @@ public partial class AdminOrdersViewModel : ObservableObject
     /// <summary>Liste yenileme; durum kaydı gibi işlemler <see cref="IsBusy"/> varken de çağrılabilir.</summary>
     private async Task RefreshCoreAsync(bool showGlobalBusy = true)
     {
+        await _listRefreshGate.WaitAsync();
+        try
+        {
         if (showGlobalBusy)
             IsBusy = true;
         Error = null;
@@ -151,7 +164,7 @@ public partial class AdminOrdersViewModel : ObservableObject
 
             Items.Clear();
             foreach (var x in resp.Data.Items)
-                Items.Add(x);
+                Items.Add(new AdminOrderRowVm(x, this));
             TotalCount = resp.Data.Meta.Total;
             _lastListSuccessUtc = DateTime.UtcNow;
         }
@@ -160,10 +173,15 @@ public partial class AdminOrdersViewModel : ObservableObject
             if (showGlobalBusy)
                 IsBusy = false;
         }
+        }
+        finally
+        {
+            _listRefreshGate.Release();
+        }
     }
 
     [RelayCommand]
-    private async Task SelectOrderAsync(AdminOrderListItem? item)
+    private async Task SelectOrderAsync(AdminOrderRowVm? item)
     {
         if (item is null) return;
         DetailError = null;
@@ -183,6 +201,41 @@ public partial class AdminOrdersViewModel : ObservableObject
             SelectedDetail = resp.Data;
             DetailError = null;
             DetailErrorTraceId = null;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public bool CanCancel(AdminOrderRowVm item) =>
+        item.Status is OrderStatus.Draft or OrderStatus.Placed or OrderStatus.Paid;
+
+    [RelayCommand]
+    private async Task CancelOrderAsync(AdminOrderRowVm? item)
+    {
+        if (item is null || !CanCancel(item) || IsBusy) return;
+        await UpdateStatusForRowAsync(item, (int)OrderStatus.Cancelled);
+    }
+
+    internal async Task<bool> UpdateStatusForRowAsync(AdminOrderRowVm row, int newStatus)
+    {
+        Error = null;
+        ErrorTraceId = null;
+        IsBusy = true;
+        try
+        {
+            var resp = await _orders.UpdateStatusAsync(row.OrderId, newStatus, CancellationToken.None);
+            if (!resp.Success)
+            {
+                Error = FormatAdminApiError(resp.Error) ?? "Durum güncellenemedi.";
+                ErrorTraceId = string.IsNullOrWhiteSpace(resp.TraceId) ? null : resp.TraceId;
+                return false;
+            }
+
+            await RefreshCoreAsync(showGlobalBusy: false);
+            ToastMessage = $"Durum güncellendi: {StatusLabel(newStatus)}";
+            return true;
         }
         finally
         {
@@ -236,6 +289,8 @@ public partial class AdminOrdersViewModel : ObservableObject
             var d = await _orders.GetDetailAsync(orderId, CancellationToken.None);
             if (d.Success && d.Data is not null)
                 SelectedDetail = d.Data;
+
+            ToastMessage = $"Durum kaydedildi: {StatusLabel(newStatus)}";
         }
         finally
         {
@@ -294,9 +349,94 @@ public partial class AdminOrdersViewModel : ObservableObject
     /// <summary>Geçerli sipariş durumundan izin verilen hedef durumlar (API kurallarıyla uyumlu).</summary>
     public static (int Value, string Label)[] AllowedNextStatuses(int current) => current switch
     {
-        0 => new[] { (1, "Verildi"), (4, "İptal") },
-        1 => new[] { (2, "Ödendi"), (4, "İptal") },
-        2 => new[] { (3, "Kargoda"), (4, "İptal") },
+        0 => new[] { (1, "Onaylandı"), (4, "İptal") },
+        1 => new[] { (2, "Kargoda"), (4, "İptal") },
+        2 => new[] { (3, "Tamamlandı"), (4, "İptal") },
         _ => Array.Empty<(int, string)>()
     };
+
+    public sealed partial class AdminOrderRowVm : ObservableObject
+    {
+        private readonly AdminOrdersViewModel _owner;
+        private bool _suppressSelectionChange;
+
+        public AdminOrderRowVm(AdminOrderListItem item, AdminOrdersViewModel owner)
+        {
+            _owner = owner;
+
+            OrderId = item.OrderId;
+            OrderNumber = item.OrderNumber;
+            BuyerEmail = item.BuyerEmail;
+            SellerDisplayName = item.SellerDisplayName;
+            CurrencyCode = item.CurrencyCode;
+            GrandTotal = item.GrandTotal;
+            CreatedAtUtc = item.CreatedAtUtc;
+            Status = item.Status;
+
+            RebuildOptions();
+        }
+
+        public Guid OrderId { get; }
+        public long OrderNumber { get; }
+        public string BuyerEmail { get; }
+        public string? SellerDisplayName { get; }
+        public string CurrencyCode { get; }
+        public decimal GrandTotal { get; }
+        public DateTime CreatedAtUtc { get; }
+
+        [ObservableProperty] private OrderStatus status;
+        [ObservableProperty] private bool isSaving;
+        [ObservableProperty] private ObservableCollection<NextStatusOption> nextStatusOptions = new();
+        [ObservableProperty] private NextStatusOption? selectedNextStatusOption;
+
+        partial void OnSelectedNextStatusOptionChanged(NextStatusOption? value)
+        {
+            if (_suppressSelectionChange) return;
+            if (value is null) return;
+            if ((int)Status == value.Value) return;
+            if (IsSaving) return;
+            if (value.Value == (int)OrderStatus.Cancelled) return; // iptal ayrı aksiyon
+
+            _ = SaveStatusFromPickerAsync(value.Value);
+        }
+
+        private async Task SaveStatusFromPickerAsync(int newStatus)
+        {
+            IsSaving = true;
+            try
+            {
+                var ok = await _owner.UpdateStatusForRowAsync(this, newStatus);
+                if (!ok)
+                {
+                    _suppressSelectionChange = true;
+                    SelectedNextStatusOption = NextStatusOptions.FirstOrDefault(o => o.Value == (int)Status);
+                    _suppressSelectionChange = false;
+                    return;
+                }
+
+                Status = (OrderStatus)newStatus;
+                _suppressSelectionChange = true;
+                RebuildOptions();
+                _suppressSelectionChange = false;
+            }
+            finally
+            {
+                IsSaving = false;
+            }
+        }
+
+        private void RebuildOptions()
+        {
+            NextStatusOptions.Clear();
+            var cur = (int)Status;
+            NextStatusOptions.Add(new NextStatusOption(cur, $"{StatusLabel(cur)} (mevcut)"));
+            foreach (var x in AllowedNextStatuses(cur))
+            {
+                if (x.Value == (int)OrderStatus.Cancelled) continue; // iptal ayrı aksiyon
+                NextStatusOptions.Add(new NextStatusOption(x.Value, x.Label));
+            }
+
+            SelectedNextStatusOption = NextStatusOptions.FirstOrDefault(o => o.Value == cur);
+        }
+    }
 }
