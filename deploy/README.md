@@ -36,6 +36,17 @@ docker compose ps
 docker compose logs -f api
 ```
 
+### (Opsiyonel) Daha hızlı deploy: GHCR image pull
+
+`main` branch'e her push'ta API image'ı GHCR'a basılır (`ghcr.io/zhenon10/b2b-api:latest`).
+Evdeki sunucuda build yapmak yerine image çekerek daha hızlı güncelleyebilirsiniz:
+
+```bash
+cd /opt/b2b
+chmod +x deploy/scripts/deploy_pull.sh
+./deploy/scripts/deploy_pull.sh
+```
+
 ### 4) Erişim
 - Eğer public IP ile gidecekseniz:
   - API: `http://<VPS_PUBLIC_IP>:8080`
