@@ -82,3 +82,41 @@ docker compose logs -f caddy
 
 Not: Caddy, Let’s Encrypt ile otomatik sertifika alır; VPS’in 80/443 portları açık olmalı.
 
+## Canlı kullanım için önerilen minimum (evde Ubuntu + Tailscale)
+
+### 1) Otomatik açılış (systemd)
+
+Bu repo `deploy/systemd/b2b-compose.service` ile boot sonrası `docker compose up -d` çalıştırabilir.
+
+Ubuntu'da:
+```bash
+cd /opt/b2b
+sudo cp deploy/systemd/b2b-compose.service /etc/systemd/system/b2b-compose.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now b2b-compose.service
+sudo systemctl status b2b-compose.service
+```
+
+### 2) MSSQL günlük yedek (systemd timer)
+
+- Yedekler host üzerinde `/opt/b2b/backups/` altında `.bak` olarak tutulur.
+- Varsayılan retention: 7 gün (`RETENTION_DAYS`).
+
+Kurulum:
+```bash
+cd /opt/b2b
+sudo chmod +x deploy/scripts/mssql_backup.sh
+
+sudo cp deploy/systemd/b2b-mssql-backup.service /etc/systemd/system/b2b-mssql-backup.service
+sudo cp deploy/systemd/b2b-mssql-backup.timer /etc/systemd/system/b2b-mssql-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now b2b-mssql-backup.timer
+systemctl list-timers | grep b2b-mssql-backup
+```
+
+Manuel test:
+```bash
+sudo systemctl start b2b-mssql-backup.service
+ls -la /opt/b2b/backups
+```
+

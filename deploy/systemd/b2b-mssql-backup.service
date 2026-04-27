@@ -1,0 +1,11 @@
+[Unit]
+Description=B2B MSSQL backup (.bak)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/b2b
+ExecStart=/opt/b2b/deploy/scripts/mssql_backup.sh
+
