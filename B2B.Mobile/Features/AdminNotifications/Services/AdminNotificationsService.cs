@@ -14,5 +14,8 @@ public sealed class AdminNotificationsService
             "/api/v1/admin/notifications",
             new CreateAdminNotificationRequest(title, body, string.IsNullOrWhiteSpace(dataJson) ? null : dataJson.Trim()),
             ct);
+
+    public Task<ApiResponse<object>> ClearAllAsync(CancellationToken ct) =>
+        _api.DeleteAsync<object>("/api/v1/admin/notifications", ct);
 }
 

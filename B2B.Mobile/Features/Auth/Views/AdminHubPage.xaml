@@ -31,6 +31,9 @@
                         <Button Text="Bildirim gönder (tüm kullanıcılar)"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenBroadcastNotificationsCommand}" />
+                        <Button Text="Tüm bildirimleri sil"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ClearAllNotificationsCommand}" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

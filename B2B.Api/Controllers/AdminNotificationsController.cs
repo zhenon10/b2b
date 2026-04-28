@@ -98,6 +98,21 @@ public sealed class AdminNotificationsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { notificationId = n.NotificationId }, HttpContext.TraceId()));
     }
 
+    [HttpDelete]
+    [EnableRateLimiting("write")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<object>>> ClearAll(CancellationToken ct)
+    {
+        // Notifications -> cascades to NotificationDeliveries + NotificationReads (FK cascade)
+        var total = await _db.Notifications.CountAsync(ct);
+        if (total > 0)
+        {
+            await _db.Notifications.ExecuteDeleteAsync(ct);
+        }
+
+        return Ok(ApiResponse<object>.Ok(new { deletedNotifications = total }, HttpContext.TraceId()));
+    }
+
     private static bool TryGetUserId(ClaimsPrincipal user, out Guid userId)
     {
         userId = Guid.Empty;
