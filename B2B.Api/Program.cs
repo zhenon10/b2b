@@ -205,6 +205,20 @@ builder.Services.AddOptions<UploadLimitsOptions>()
 builder.Services.AddOptions<ObjectStorageOptions>()
     .BindConfiguration(ObjectStorageOptions.SectionName);
 
+builder.Services.AddOptions<B2B.Api.Push.PushOptions>()
+    .BindConfiguration(B2B.Api.Push.PushOptions.SectionName);
+
+builder.Services.AddOptions<B2B.Api.Push.FcmOptions>()
+    .BindConfiguration(B2B.Api.Push.FcmOptions.SectionName);
+
+builder.Services.AddSingleton<B2B.Api.Push.IPushSender>(sp =>
+{
+    var enabled = sp.GetRequiredService<IOptions<B2B.Api.Push.PushOptions>>().Value.Enabled;
+    return enabled
+        ? ActivatorUtilities.CreateInstance<B2B.Api.Push.FcmPushSender>(sp)
+        : new B2B.Api.Push.NoopPushSender();
+});
+
 builder.Services.AddSingleton<IAmazonS3>(sp =>
 {
     var o = sp.GetRequiredService<IOptions<ObjectStorageOptions>>().Value;

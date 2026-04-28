@@ -2,6 +2,7 @@
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using Plugin.Firebase.CloudMessaging;
 
 namespace B2B.Mobile;
 
@@ -13,4 +14,16 @@ namespace B2B.Mobile;
     DataHost = "product")]
 public class MainActivity : MauiAppCompatActivity
 {
+    protected override void OnCreate(Bundle? savedInstanceState)
+    {
+        base.OnCreate(savedInstanceState);
+        FirebaseCloudMessagingImplementation.OnNewIntent(Intent);
+    }
+
+    protected override void OnNewIntent(Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        if (intent is not null)
+            FirebaseCloudMessagingImplementation.OnNewIntent(intent);
+    }
 }

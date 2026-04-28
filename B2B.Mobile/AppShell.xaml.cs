@@ -4,6 +4,7 @@ using B2B.Mobile.Features.Auth.Views;
 using B2B.Mobile.Features.Products.ViewModels;
 using B2B.Mobile.Features.Orders.Views;
 using B2B.Mobile.Features.Products.Views;
+using B2B.Mobile.Features.Notifications.Views;
 
 namespace B2B.Mobile;
 
@@ -45,6 +46,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("pendingDealers", typeof(PendingDealersPage));
         Routing.RegisterRoute("adminOrders", typeof(AdminOrdersPage));
         Routing.RegisterRoute("settings", typeof(SettingsPage));
+        Routing.RegisterRoute("notifications", typeof(NotificationsPage));
     }
 
     private void OnNavigated(object? sender, ShellNavigatedEventArgs e)

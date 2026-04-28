@@ -12,6 +12,11 @@ public partial class App : Application
 		InitializeComponent();
         Services = services;
 
+        // Register / refresh push token on startup (no-op if not configured on device).
+#if ANDROID || IOS
+        services.GetService<Core.Push.PushTokenSyncService>()?.Start();
+#endif
+
         // Surface unexpected managed exceptions on-device instead of "crash".
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {

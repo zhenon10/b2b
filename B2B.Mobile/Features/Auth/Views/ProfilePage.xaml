@@ -96,6 +96,11 @@
                     Command="{Binding OpenSettingsCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
 
+            <Button Text="Bildirimler"
+                    Style="{StaticResource SecondaryButton}"
+                    Command="{Binding OpenNotificationsCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+
             <Button Text="{x:Static str:AppStrings.Profile_Logout}"
                     SemanticProperties.Hint="{x:Static str:AppStrings.Profile_LogoutHint}"
                     Style="{StaticResource SecondaryButton}"

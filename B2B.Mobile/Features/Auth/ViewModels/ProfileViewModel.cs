@@ -178,6 +178,9 @@ public partial class ProfileViewModel : ObservableObject
     [RelayCommand]
     private static Task OpenSettingsAsync() => Shell.Current.GoToAsync("settings");
 
+    [RelayCommand]
+    private static Task OpenNotificationsAsync() => Shell.Current.GoToAsync("notifications");
+
     private static string FormatRoles(IReadOnlyList<string>? roles)
     {
         if (roles is null || roles.Count == 0)

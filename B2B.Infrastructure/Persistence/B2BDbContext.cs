@@ -23,6 +23,10 @@ public sealed class B2BDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AdminDealerApprovalIdempotency> AdminDealerApprovalIdempotencies => Set<AdminDealerApprovalIdempotency>();
     public DbSet<UploadAudit> UploadAudits => Set<UploadAudit>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<DevicePushToken> DevicePushTokens => Set<DevicePushToken>();
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    public DbSet<NotificationRead> NotificationReads => Set<NotificationRead>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -333,6 +337,94 @@ public sealed class B2BDbContext : DbContext
 
             b.HasIndex(x => new { x.UserId, x.CreatedAtUtc });
             b.HasIndex(x => new { x.Kind, x.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<Notification>(b =>
+        {
+            b.ToTable("Notifications");
+            b.HasKey(x => x.NotificationId);
+
+            b.Property(x => x.Title).HasMaxLength(140).IsRequired();
+            b.Property(x => x.Body).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Target).HasMaxLength(40).IsRequired();
+            b.Property(x => x.DataJson).HasMaxLength(8000);
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            b.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<DevicePushToken>(b =>
+        {
+            b.ToTable("DevicePushTokens");
+            b.HasKey(x => x.DevicePushTokenId);
+
+            b.Property(x => x.Platform).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Token).HasMaxLength(512).IsRequired();
+            b.Property(x => x.IsActive).HasDefaultValue(true);
+            b.Property(x => x.LastSeenAtUtc).HasDefaultValueSql("sysutcdatetime()");
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.Platform, x.Token }).IsUnique();
+            b.HasIndex(x => new { x.UserId, x.IsActive, x.LastSeenAtUtc });
+        });
+
+        modelBuilder.Entity<NotificationDelivery>(b =>
+        {
+            b.ToTable("NotificationDeliveries");
+            b.HasKey(x => x.NotificationDeliveryId);
+
+            b.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Error).HasMaxLength(1000);
+            b.Property(x => x.SentAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.Notification)
+                .WithMany()
+                .HasForeignKey(x => x.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.DevicePushToken)
+                .WithMany()
+                .HasForeignKey(x => x.DevicePushTokenId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.NotificationId, x.SentAtUtc });
+            b.HasIndex(x => new { x.DevicePushTokenId, x.SentAtUtc });
+        });
+
+        modelBuilder.Entity<NotificationRead>(b =>
+        {
+            b.ToTable("NotificationReads");
+            b.HasKey(x => x.NotificationReadId);
+
+            b.Property(x => x.ReadAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.Notification)
+                .WithMany()
+                .HasForeignKey(x => x.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            b.HasIndex(x => new { x.UserId, x.NotificationId }).IsUnique();
+            b.HasIndex(x => x.ReadAtUtc);
         });
 
         base.OnModelCreating(modelBuilder);
