@@ -9,6 +9,65 @@
     xmlns:str="clr-namespace:B2B.Mobile.Resources.Strings;assembly=B2B.Mobile"
     Title="Ürünler">
 
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Fotoğrafsız, kompakt liste satırı -->
+            <DataTemplate x:Key="NoPhotoListTemplate" x:DataType="models:ProductListItem">
+                <Border Style="{StaticResource Card}" Padding="12,10" Margin="0,0,0,4">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                        <Label Grid.Row="0" Grid.Column="0"
+                               Text="{Binding Name}"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="2"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray200}}" />
+
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Spacing="8">
+                            <Label Text="{Binding Sku, StringFormat='SKU: {0}'}"
+                                   Style="{StaticResource Caption}"
+                                   LineBreakMode="TailTruncation"
+                                   IsVisible="{Binding BindingContext.CanManageProducts, Source={RelativeSource AncestorType={x:Type ContentPage}}}" />
+
+                            <Border BackgroundColor="{StaticResource Gray600}"
+                                    StrokeThickness="0"
+                                    Padding="8,3"
+                                    StrokeShape="RoundRectangle 10"
+                                    IsVisible="{Binding IsActive, Converter={StaticResource InverseBoolConverter}}">
+                                <Label Text="Pasif" TextColor="White" FontSize="11" FontAttributes="Bold" />
+                            </Border>
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Spacing="6">
+                            <Label Text="{Binding DealerPrice, StringFormat='{0:0.##}'}"
+                                   FontAttributes="Bold"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   VerticalOptions="End" />
+                            <Label Text="{Binding CurrencyCode}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                   VerticalOptions="End" />
+                        </HorizontalStackLayout>
+
+                        <Button Grid.Row="0" Grid.RowSpan="3" Grid.Column="1"
+                                Text="Sepete"
+                                FontSize="12"
+                                Padding="12,8"
+                                HeightRequest="40"
+                                CornerRadius="12"
+                                BackgroundColor="Transparent"
+                                BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                BorderWidth="1"
+                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                Command="{Binding BindingContext.AddToCartQuickCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,Auto,*" Padding="12" RowSpacing="8">
         <shell:MainHeaderView Grid.Row="0"
                               LeftCaption="{Binding FilterSummary, StringFormat='Kategori: {0}'}" />
@@ -141,14 +200,17 @@
                     IsVisible="{Binding ShowSkeleton, Converter={StaticResource InverseBoolConverter}}"
                     VerticalOptions="Fill"
                     HorizontalOptions="Fill">
-                    <CollectionView x:Name="ProductsCollection"
-                        ItemsSource="{Binding Items}"
-                        RemainingItemsThreshold="6"
-                        RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
-                        SelectionMode="Single"
-                        SelectionChanged="OnSelectionChanged"
-                        VerticalOptions="Fill"
-                        HorizontalOptions="Fill">
+                    <Grid RowDefinitions="*">
+                        <!-- Fotoğraflı (tek sütun / 2 sütun) görünüm -->
+                        <CollectionView x:Name="ProductsCollection"
+                            IsVisible="{Binding IsNoPhotoListMode, Converter={StaticResource InverseBoolConverter}}"
+                            ItemsSource="{Binding Items}"
+                            RemainingItemsThreshold="6"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
+                            SelectionMode="Single"
+                            SelectionChanged="OnSelectionChanged"
+                            VerticalOptions="Fill"
+                            HorizontalOptions="Fill">
 
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Padding="24" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
@@ -277,7 +339,41 @@
                             </Border>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
-                    </CollectionView>
+                        </CollectionView>
+
+                        <!-- Fotoğrafsız liste görünüm -->
+                        <CollectionView x:Name="ProductsNoPhotoCollection"
+                            IsVisible="{Binding IsNoPhotoListMode}"
+                            ItemsSource="{Binding Items}"
+                            RemainingItemsThreshold="6"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
+                            SelectionMode="Single"
+                            SelectionChanged="OnSelectionChanged"
+                            VerticalOptions="Fill"
+                            HorizontalOptions="Fill"
+                            ItemTemplate="{StaticResource NoPhotoListTemplate}">
+
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" />
+                            </CollectionView.ItemsLayout>
+
+                            <CollectionView.EmptyView>
+                                <VerticalStackLayout Padding="24" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Label Text="{Binding CatalogEmptyTitle}" Style="{StaticResource Title}" HorizontalTextAlignment="Center" />
+                                    <Label Text="{Binding CatalogEmptyHint}" Style="{StaticResource Caption}" HorizontalTextAlignment="Center" />
+                                    <Button Text="Aramayı temizle"
+                                            IsVisible="{Binding Query, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+                                            SemanticProperties.Hint="Arama metnini temizler ve kataloğu yeniden yükler"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding ClearQueryCommand}" />
+                                    <Button Text="Yenile"
+                                            SemanticProperties.Hint="Kataloğu yeniden yükler"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding RefreshCommand}" />
+                                </VerticalStackLayout>
+                            </CollectionView.EmptyView>
+                        </CollectionView>
+                    </Grid>
                 </RefreshView>
             </Grid>
         </Grid>

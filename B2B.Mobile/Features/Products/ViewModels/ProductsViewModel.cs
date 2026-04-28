@@ -34,12 +34,18 @@ public partial class ProductsViewModel : ObservableObject
     [ObservableProperty] private bool includeInactiveProducts;
     [ObservableProperty] private string catalogEmptyTitle = "Ürün bulunamadı";
     [ObservableProperty] private string catalogEmptyHint = "Aramanızı veya kategori seçimini değiştirmeyi deneyin.";
-    /// <summary>1 = liste, 2 = ızgara; <see cref="Preferences"/> ile kalıcı.</summary>
-    [ObservableProperty] private int catalogColumns = 1;
+    /// <summary>
+    /// 0 = tek sütun (fotoğraflı kart), 1 = 2 sütun (fotoğraflı ızgara), 2 = liste (fotoğrafsız).
+    /// </summary>
+    [ObservableProperty] private int catalogViewMode;
 
     public string FilterSummary => _catalogFilter.Summary;
 
-    private const string PrefCatalogColumnsKey = "products_catalog_columns";
+    public int CatalogColumns => CatalogViewMode == 1 ? 2 : 1;
+    public bool IsNoPhotoListMode => CatalogViewMode == 2;
+
+    private const string PrefCatalogViewModeKey = "products_catalog_view_mode";
+    private const string PrefCatalogColumnsLegacyKey = "products_catalog_columns";
 
     private int _page = 1;
     private const int PageSize = 20;
@@ -58,10 +64,26 @@ public partial class ProductsViewModel : ObservableObject
         _authSession = authSession;
         _catalogFilter = catalogFilter;
         _cart = cart;
-        var saved = Preferences.Default.Get(PrefCatalogColumnsKey, 2);
-        CatalogColumns = saved == 1 ? 1 : 2;
+        // Migration: older builds persisted only 1/2 columns.
+        var savedMode = Preferences.Default.Get(PrefCatalogViewModeKey, -1);
+        if (savedMode is 0 or 1 or 2)
+        {
+            CatalogViewMode = savedMode;
+        }
+        else
+        {
+            var legacyCols = Preferences.Default.Get(PrefCatalogColumnsLegacyKey, 2);
+            CatalogViewMode = legacyCols == 1 ? 0 : 1;
+        }
         _ = RefreshRolesAsync();
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowSkeleton));
+    }
+
+    partial void OnCatalogViewModeChanged(int value)
+    {
+        // Keep computed bindings fresh.
+        OnPropertyChanged(nameof(CatalogColumns));
+        OnPropertyChanged(nameof(IsNoPhotoListMode));
     }
 
     public void NotifyFilterSummaryChanged() => OnPropertyChanged(nameof(FilterSummary));
@@ -339,8 +361,14 @@ public partial class ProductsViewModel : ObservableObject
     [RelayCommand]
     private void ToggleCatalogLayout()
     {
-        CatalogColumns = CatalogColumns == 1 ? 2 : 1;
-        Preferences.Default.Set(PrefCatalogColumnsKey, CatalogColumns);
+        // Cycle: list(photo) -> grid(photo) -> list(no-photo) -> list(photo)
+        CatalogViewMode = CatalogViewMode switch
+        {
+            0 => 1,
+            1 => 2,
+            _ => 0
+        };
+        Preferences.Default.Set(PrefCatalogViewModeKey, CatalogViewMode);
     }
 
     public async Task ApplyScannedCodeAsync(string code)

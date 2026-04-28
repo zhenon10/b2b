@@ -80,7 +80,14 @@ public static class MauiProgram
 
         builder.Services.AddHttpClient("fx", http =>
         {
-            http.BaseAddress = new Uri("https://api.frankfurter.app/");
+            // Frankfurter: `api.frankfurter.app` no longer serves `/v1/...` (404). Use the current dev API host.
+            http.BaseAddress = new Uri("https://api.frankfurter.dev/");
+            http.Timeout = TimeSpan.FromSeconds(12);
+        });
+
+        builder.Services.AddHttpClient("altinapi", http =>
+        {
+            http.BaseAddress = new Uri("https://altinapi.com/api/v1/");
             http.Timeout = TimeSpan.FromSeconds(12);
         });
 

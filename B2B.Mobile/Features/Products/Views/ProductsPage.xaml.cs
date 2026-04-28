@@ -38,7 +38,7 @@ public partial class ProductsPage : ContentPage, IQueryAttributable
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ProductsViewModel.CatalogColumns))
+        if (e.PropertyName is nameof(ProductsViewModel.CatalogViewMode) or nameof(ProductsViewModel.CatalogColumns) or nameof(ProductsViewModel.IsNoPhotoListMode))
         {
             ApplyCatalogLayout();
             UpdateLayoutToggleIcon();
@@ -113,14 +113,29 @@ public partial class ProductsPage : ContentPage, IQueryAttributable
         }
     }
 
-    /// <summary>Tek sütundaızgara ikonu (geçiş), iki sütunda liste ikonu.</summary>
+    /// <summary>3 mod döngüsü için ikon + kısa metin.</summary>
     private void UpdateLayoutToggleIcon()
     {
-        var showGridGlyph = _vm.CatalogColumns == 1;
+        // Icon represents the *next* mode (tap action).
+        // 0(list+photo)->1(grid)->2(list no photo)->0...
+        var next = _vm.CatalogViewMode switch { 0 => 1, 1 => 2, _ => 0 };
+        var glyph = next switch
+        {
+            1 => "\uE8F0", // grid
+            2 => "\uE8EF", // list
+            _ => "\uE8F0"  // back to photo list -> show grid icon again
+        };
+
+        _layoutToolbar.Text = _vm.CatalogViewMode switch
+        {
+            0 => "1x",
+            1 => "2x",
+            _ => "Liste"
+        };
         _layoutToolbar.IconImageSource = new FontImageSource
         {
             FontFamily = "MaterialIcons",
-            Glyph = showGridGlyph ? "\uE8F0" : "\uE8EF",
+            Glyph = glyph,
             Size = 22,
             Color = Application.Current?.RequestedTheme == AppTheme.Dark
                 ? Color.FromArgb("#AC99EA")

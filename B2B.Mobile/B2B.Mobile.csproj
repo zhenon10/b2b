@@ -55,6 +55,14 @@
 	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
 		<AndroidUseFastDeployment>false</AndroidUseFastDeployment>
 		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+		<!-- Ensure runtime can load native libs/assemblies from APK when sideloaded.
+		     Some OEM installers may compress entries; keep critical payload uncompressed. -->
+		<AndroidUseAapt2>true</AndroidUseAapt2>
+		<!-- These properties expect dot-prefixed extensions. -->
+		<AndroidStoreUncompressedFileExtensions>.so;.dll</AndroidStoreUncompressedFileExtensions>
+		<AndroidAapt2NoCompress>.so</AndroidAapt2NoCompress>
+		<!-- Avoid relying on a separate shared runtime on-device. -->
+		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
 	</PropertyGroup>
 
 	<ItemGroup>
