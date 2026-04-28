@@ -24,14 +24,14 @@ using B2B.Mobile.Features.Products.Views;
 using B2B.Mobile.Features.Notifications.Services;
 using B2B.Mobile.Features.Notifications.ViewModels;
 using B2B.Mobile.Features.Notifications.Views;
+using B2B.Mobile.Features.AdminNotifications.Services;
+using B2B.Mobile.Features.AdminNotifications.ViewModels;
+using B2B.Mobile.Features.AdminNotifications.Views;
 using ZXing.Net.Maui.Controls;
-#if IOS
-using Plugin.Firebase.Bundled.Platforms.iOS;
-#elif ANDROID
-using Plugin.Firebase.Bundled.Platforms.Android;
+#if ANDROID
 using Plugin.Firebase.CloudMessaging;
+using Plugin.Firebase.Core.Platforms.Android;
 #endif
-using Plugin.Firebase.Bundled.Shared;
 
 namespace B2B.Mobile;
 
@@ -72,22 +72,9 @@ public static class MauiProgram
 #endif
 			});
 
-        builder.ConfigureLifecycleEvents(events =>
-        {
-#if IOS
-            events.AddiOS(iOS => iOS.WillFinishLaunching((_, __) =>
-            {
-                CrossFirebase.Initialize(CreateCrossFirebaseSettings());
-                FirebaseCloudMessagingImplementation.Initialize();
-                return false;
-            }));
-#elif ANDROID
-            events.AddAndroid(android => android.OnCreate((activity, _) =>
-            {
-                CrossFirebase.Initialize(activity, () => Platform.CurrentActivity, CreateCrossFirebaseSettings());
-            }));
+#if ANDROID
+        // Firebase init is done from MainActivity to guarantee ordering (channel + permission + token registration).
 #endif
-        });
 
         var apiBaseUrl = ApiBaseUrlResolver.Resolve(builder.Configuration);
         builder.Services.AddSingleton(new ApplicationApiSessionState(apiBaseUrl));
@@ -146,11 +133,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<AdminOrdersService>();
         builder.Services.AddSingleton<AdminUsersService>();
         builder.Services.AddSingleton<NotificationsService>();
+        builder.Services.AddSingleton<AdminNotificationsService>();
 
 #if IOS || ANDROID
-        builder.Services.AddSingleton(_ => CrossFirebaseCloudMessaging.Current);
         builder.Services.AddSingleton<Core.Push.PushTokenSyncService>();
         builder.Services.AddSingleton<Core.Push.PushTokensService>();
+#endif
+
+#if ANDROID
+        builder.Services.AddSingleton<Core.Push.IPushTokenProvider, Platforms.Android.AndroidPushTokenProvider>();
 #endif
 
         builder.Services.AddSingleton<AppShell>();
@@ -170,6 +161,7 @@ public static class MauiProgram
         builder.Services.AddTransient<AdminHubViewModel>();
         builder.Services.AddTransient<PendingDealersViewModel>();
         builder.Services.AddTransient<NotificationsViewModel>();
+        builder.Services.AddTransient<AdminNotificationComposerViewModel>();
 
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<RegisterPage>();
@@ -186,6 +178,7 @@ public static class MauiProgram
         builder.Services.AddTransient<AdminHubPage>();
         builder.Services.AddTransient<PendingDealersPage>();
         builder.Services.AddTransient<NotificationsPage>();
+        builder.Services.AddTransient<AdminNotificationComposerPage>();
 
 #if DEBUG
 		builder.Logging.AddDebug();
@@ -193,21 +186,4 @@ public static class MauiProgram
 
 		return builder.Build();
 	}
-
-    private static CrossFirebaseSettings CreateCrossFirebaseSettings()
-    {
-        // We only need Cloud Messaging for now.
-        return new CrossFirebaseSettings(
-            isAnalyticsEnabled: false,
-            isAuthEnabled: false,
-            isCloudMessagingEnabled: true,
-            isDynamicLinksEnabled: false,
-            isFirestoreEnabled: false,
-            isFunctionsEnabled: false,
-            isRemoteConfigEnabled: false,
-            isStorageEnabled: false,
-            appCheckOptions: Plugin.Firebase.AppCheck.AppCheckOptions.Disabled,
-            googleRequestIdToken: ""
-        );
-    }
 }

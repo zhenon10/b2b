@@ -28,6 +28,9 @@
                         <Button Text="Onay bekleyen üyelikler"
                                 Style="{StaticResource SecondaryButton}"
                                 Command="{Binding OpenPendingDealersCommand}" />
+                        <Button Text="Bildirim gönder (tüm kullanıcılar)"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding OpenBroadcastNotificationsCommand}" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

@@ -7,6 +7,8 @@
 		android:supportsRtl="true"
 		android:usesCleartextTraffic="true">
 		<meta-data android:name="B2B_API_BASE" android:value="@string/b2b_api_base_url" />
+		<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
+				   android:value="@string/b2b_fcm_default_channel_id" />
 
 		<!-- Plugin.Firebase CloudMessaging receivers -->
 		<receiver
@@ -25,6 +27,8 @@
 	</application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
+	<!-- Android 13+ notifications runtime permission -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 	<uses-permission android:name="android.permission.CAMERA" />
 	<!-- Gallery / photo picker (Android 13+) -->
 	<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

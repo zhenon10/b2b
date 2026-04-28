@@ -13,6 +13,7 @@ public static class AdminRouteGuard
         "adminOrders",
         "pendingDealers",
         "productEdit",
+        "adminBroadcast",
     ];
 
     public static bool UriLooksLikeAdminOnly(string? location)

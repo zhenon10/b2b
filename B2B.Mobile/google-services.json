@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "672588974334",
-    "project_id": "zhenon-7b293",
-    "storage_bucket": "zhenon-7b293.firebasestorage.app"
+    "project_number": "53316930260",
+    "project_id": "bildirim-70a5d",
+    "storage_bucket": "bildirim-70a5d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:672588974334:android:501d28bd3adfa1e50fbdaf",
+        "mobilesdk_app_id": "1:53316930260:android:f11e7c0287849e26ee0941",
         "android_client_info": {
-          "package_name": "console.firebase.google.com"
+          "package_name": "com.companyname.b2b.mobile"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAilh0y6sm0AHLZYfes8oEClo4xSX_4jE8"
+          "current_key": "AIzaSyDcE6Xn0RUdvwgEdXEuVtk6tsY_6T1DX_Y"
         }
       ],
       "services": {

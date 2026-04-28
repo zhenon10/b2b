@@ -1,6 +1,7 @@
 ﻿using B2B.Mobile.Core.Auth;
 using B2B.Mobile.Core.Shell;
 using B2B.Mobile.Features.Auth.Views;
+using B2B.Mobile.Features.AdminNotifications.Views;
 using B2B.Mobile.Features.Products.ViewModels;
 using B2B.Mobile.Features.Orders.Views;
 using B2B.Mobile.Features.Products.Views;
@@ -45,6 +46,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("categoryEdit", typeof(CategoryEditPage));
         Routing.RegisterRoute("pendingDealers", typeof(PendingDealersPage));
         Routing.RegisterRoute("adminOrders", typeof(AdminOrdersPage));
+        Routing.RegisterRoute("adminBroadcast", typeof(AdminNotificationComposerPage));
         Routing.RegisterRoute("settings", typeof(SettingsPage));
         Routing.RegisterRoute("notifications", typeof(NotificationsPage));
     }

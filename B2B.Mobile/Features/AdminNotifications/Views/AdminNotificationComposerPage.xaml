@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="B2B.Mobile.Features.AdminNotifications.Views.AdminNotificationComposerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shell="clr-namespace:B2B.Mobile.Core.Shell"
+    Title="Bildirim Gönder">
+
+    <Grid RowDefinitions="Auto,*">
+        <shell:MainHeaderView Grid.Row="0" Padding="16,12,16,0" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="12">
+                <Label Text="Broadcast push + uygulama içi bildirim"
+                       Style="{StaticResource Title2}" />
+                <Label Text="Tüm kullanıcılara bildirim gönderilir. Başlık ve mesaj zorunludur."
+                       Style="{StaticResource Caption}" />
+
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Başlık" Style="{StaticResource Caption}" />
+                        <Entry Text="{Binding Title}" Placeholder="Örn: Kampanya" />
+
+                        <Label Text="Mesaj" Style="{StaticResource Caption}" />
+                        <Editor Text="{Binding Body}" AutoSize="TextChanges" Placeholder="Bildirim mesajı..." />
+
+                        <Label Text="Data (opsiyonel JSON)" Style="{StaticResource Caption}" />
+                        <Editor Text="{Binding DataJson}" AutoSize="TextChanges" Placeholder="Örn: JSON (kind=promo, id=123)" />
+
+                        <Label Text="{Binding Error}"
+                               TextColor="{StaticResource Error}"
+                               IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                        <Label Text="{Binding LastResult}"
+                               TextColor="{StaticResource Success}"
+                               IsVisible="{Binding LastResult, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+
+                        <Button Text="Gönder"
+                                Command="{Binding SendCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
+

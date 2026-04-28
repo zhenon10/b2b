@@ -44,4 +44,8 @@ public partial class AdminHubViewModel : ObservableObject
     [RelayCommand]
     private Task OpenAdminOrdersAsync() =>
         EnsureAdminThenAsync(() => Shell.Current.GoToAsync("adminOrders"));
+
+    [RelayCommand]
+    private Task OpenBroadcastNotificationsAsync() =>
+        EnsureAdminThenAsync(() => Shell.Current.GoToAsync("adminBroadcast"));
 }
