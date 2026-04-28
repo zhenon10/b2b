@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "672588974334",
+    "project_id": "zhenon-7b293",
+    "storage_bucket": "zhenon-7b293.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:672588974334:android:501d28bd3adfa1e50fbdaf",
+        "android_client_info": {
+          "package_name": "console.firebase.google.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAilh0y6sm0AHLZYfes8oEClo4xSX_4jE8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
