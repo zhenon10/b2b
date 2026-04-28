@@ -14,6 +14,10 @@ services:
     build:
       context: .
       dockerfile: B2B.Api/Dockerfile
+    # Load all variables from .env into the container too.
+    # We still keep explicit mappings below so defaults are visible.
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://0.0.0.0:8080
