@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Öncelik: B2B_API_BASE → bu değer → appsettings (Api:BaseUrl). -->
-    <string name="b2b_api_base_url" translatable="false">http://100.125.160.95:8080/</string>
+    <string name="b2b_api_base_url" translatable="false">http://78.189.53.159:50080/</string>
 </resources>
