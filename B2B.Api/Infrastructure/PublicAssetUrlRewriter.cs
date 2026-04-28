@@ -33,7 +33,13 @@ public static class PublicAssetUrlRewriter
         if (IsLoopbackHost(uri.Host))
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
 
-        if (opts?.RewritePrivateLanUploadUrls == true && IsPrivateIPv4Host(uri.Host))
+        // Always rewrite URLs pointing to unroutable private/cgnat hosts.
+        // These are commonly persisted when uploads are created from LAN/Tailscale clients.
+        if (IsPrivateOrCarrierNatIPv4Host(uri.Host))
+            return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
+
+        // Optional extra safety net for legacy data.
+        if (opts?.RewritePrivateLanUploadUrls == true && IsPrivateOrCarrierNatIPv4Host(uri.Host))
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
 
         return storedUrl;
@@ -50,8 +56,10 @@ public static class PublicAssetUrlRewriter
         return IPAddress.IsLoopback(ip);
     }
 
-    /// <summary>RFC1918 IPv4 hosts only (upload URLs on same LAN).</summary>
-    private static bool IsPrivateIPv4Host(string host)
+    /// <summary>
+    /// Unroutable IPv4 hosts: RFC1918 + Carrier-grade NAT (RFC6598, 100.64.0.0/10).
+    /// </summary>
+    private static bool IsPrivateOrCarrierNatIPv4Host(string host)
     {
         if (!IPAddress.TryParse(host, out var ip))
             return false;
@@ -64,6 +72,9 @@ public static class PublicAssetUrlRewriter
         if (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
             return true;
         if (b[0] == 192 && b[1] == 168)
+            return true;
+        // RFC6598: 100.64.0.0/10 (Carrier-grade NAT, also used by Tailscale CGNAT range).
+        if (b[0] == 100 && b[1] >= 64 && b[1] <= 127)
             return true;
         return false;
     }
