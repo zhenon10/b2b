@@ -1,5 +1,6 @@
 @page "/products"
 @using B2B.Admin.Services
+@using B2B.Contracts
 @inject B2BApiClient Api
 @inject NavigationManager Nav
 
@@ -132,8 +133,8 @@ else
 @code {
     private bool IsBusy { get; set; } = true;
     private string? Error { get; set; }
-    private List<B2BApiClient.ProductListItem> Items { get; set; } = new();
-    private List<B2BApiClient.CategoryListItem> CategoryOptions { get; set; } = new();
+    private List<ProductListItem> Items { get; set; } = new();
+    private List<CategoryListItem> CategoryOptions { get; set; } = new();
 
     private string? Query { get; set; }
     private string? ActiveFilter { get; set; } // "", "true", "false"
@@ -245,7 +246,7 @@ else
         _ = LoadAsync();
     }
 
-    private async Task UpdateStockAsync(B2BApiClient.ProductListItem item, object? raw)
+    private async Task UpdateStockAsync(ProductListItem item, object? raw)
     {
         if (raw is null) return;
         if (!int.TryParse(raw.ToString(), out var stock) || stock < 0)
@@ -257,7 +258,7 @@ else
         await SetStockAsync(item, stock);
     }
 
-    private async Task SetStockAsync(B2BApiClient.ProductListItem item, int stock)
+    private async Task SetStockAsync(ProductListItem item, int stock)
     {
         Error = null;
         IsBusy = true;
@@ -278,7 +279,7 @@ else
         }
     }
 
-    private async Task UpdateActiveAsync(B2BApiClient.ProductListItem item, object? raw)
+    private async Task UpdateActiveAsync(ProductListItem item, object? raw)
     {
         var isActive = raw is bool b && b;
 

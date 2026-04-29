@@ -1,0 +1,181 @@
+@page "/cari"
+@using B2B.Contracts
+@inject B2B.Admin.Services.B2BApiClient Api
+@inject B2B.Admin.Services.AdminUiNotify Notify
+
+<PageTitle>Cari</PageTitle>
+
+<h3>Cari</h3>
+
+<div class="mb-3">
+    <label class="form-label">Müşteri (BuyerUserId)</label>
+    <input class="form-control" @bind="buyerUserIdText" placeholder="Guid" />
+    <div class="form-text">Örn: <code>e3d8b7f4-....</code></div>
+    <button class="btn btn-primary mt-2" @onclick="LoadAsync" disabled="@isBusy">Yükle</button>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title mb-2">Cari Backfill</h5>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label">Dry-run</label>
+                <select class="form-select" @bind="backfillDryRun">
+                    <option value="true">Evet (sadece hesapla)</option>
+                    <option value="false">Hayır (yazar)</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label">fromUtc (opsiyonel)</label>
+                <input class="form-control" @bind="backfillFromUtcText" placeholder="2026-04-01T00:00:00Z" />
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label">toUtc (opsiyonel)</label>
+                <input class="form-control" @bind="backfillToUtcText" placeholder="2026-04-30T00:00:00Z" />
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label">batchSize</label>
+                <input class="form-control" type="number" @bind="backfillBatchSize" />
+            </div>
+            <div class="col-12">
+                <button class="btn btn-outline-primary" @onclick="RunBackfillAsync" disabled="@isBusy">Çalıştır</button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(backfillResultJson))
+        {
+            <pre class="mt-3 mb-0 small bg-light border rounded p-2">@backfillResultJson</pre>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">
+        <div>@error</div>
+        @if (!string.IsNullOrWhiteSpace(traceId))
+        {
+            <div class="small text-muted">trace: @traceId</div>
+        }
+    </div>
+}
+
+@if (items is not null)
+{
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Satıcı</th>
+            <th>Para birimi</th>
+            <th class="text-end">Bakiye</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in items)
+        {
+            <tr>
+                <td>@(string.IsNullOrWhiteSpace(row.SellerDisplayName) ? row.SellerUserId.ToString() : row.SellerDisplayName)</td>
+                <td>@row.CurrencyCode</td>
+                <td class="text-end">@row.Balance.ToString("0.##")</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="@($"/cari/entries/{buyerUserId:D}/{row.SellerUserId:D}/{row.CurrencyCode}")">
+                        Ekstre
+                    </a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string buyerUserIdText = "";
+    private Guid buyerUserId;
+    private bool isBusy;
+    private string? error;
+    private string? traceId;
+    private IReadOnlyList<CustomerAccountSummary>? items;
+
+    private bool backfillDryRun = true;
+    private string backfillFromUtcText = "";
+    private string backfillToUtcText = "";
+    private int backfillBatchSize = 500;
+    private string? backfillResultJson;
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        traceId = null;
+        items = null;
+
+        if (!Guid.TryParse(buyerUserIdText, out buyerUserId) || buyerUserId == Guid.Empty)
+        {
+            error = "Geçerli bir buyerUserId girin.";
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            var resp = await Api.GetCustomerCariAsync(buyerUserId);
+            if (!resp.Success || resp.Data is null)
+            {
+                error = resp.Error?.Message ?? "Cari yüklenemedi.";
+                traceId = resp.TraceId;
+                Notify.Raise(new AdminToast("Hata", error, AdminToastKind.Danger));
+                return;
+            }
+
+            items = resp.Data;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RunBackfillAsync()
+    {
+        error = null;
+        traceId = null;
+        backfillResultJson = null;
+
+        DateTime? fromUtc = null;
+        DateTime? toUtc = null;
+
+        if (!string.IsNullOrWhiteSpace(backfillFromUtcText)
+            && DateTime.TryParse(backfillFromUtcText, null, System.Globalization.DateTimeStyles.AdjustToUniversal, out var f))
+            fromUtc = DateTime.SpecifyKind(f, DateTimeKind.Utc);
+
+        if (!string.IsNullOrWhiteSpace(backfillToUtcText)
+            && DateTime.TryParse(backfillToUtcText, null, System.Globalization.DateTimeStyles.AdjustToUniversal, out var t))
+            toUtc = DateTime.SpecifyKind(t, DateTimeKind.Utc);
+
+        isBusy = true;
+        try
+        {
+            var resp = await Api.BackfillCariAsync(backfillDryRun, fromUtc, toUtc, backfillBatchSize);
+            if (!resp.Success || resp.Data is null)
+            {
+                error = resp.Error?.Message ?? "Backfill başarısız.";
+                traceId = resp.TraceId;
+                Notify.Raise(new AdminToast("Hata", error, AdminToastKind.Danger));
+                return;
+            }
+
+            backfillResultJson = System.Text.Json.JsonSerializer.Serialize(resp.Data, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+            Notify.Raise(new AdminToast("Backfill", backfillDryRun ? "Dry-run tamamlandı." : "Backfill yazıldı.", AdminToastKind.Info));
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}
+

@@ -1,5 +1,7 @@
 @page "/orders"
 @using B2B.Admin.Services
+@using B2B.Contracts
+@using B2B.Domain.Enums
 @inject B2BApiClient Api
 
 <PageTitle>Siparişler</PageTitle>
@@ -154,7 +156,7 @@ else
                 </table>
             </div>
 
-            @if (Detail.Status != 3 && Detail.Status != 4)
+            @if (Detail.Status is not OrderStatus.Shipped and not OrderStatus.Cancelled)
             {
                 <hr />
                 <div class="row g-2 align-items-end">
@@ -183,7 +185,7 @@ else
 
 @code {
     private const int PageSize = 20;
-    private List<B2BApiClient.AdminOrderListItem> ListItems { get; set; } = new();
+    private List<AdminOrderListItem> ListItems { get; set; } = new();
     private int Page = 1;
     private long Total;
     private int TotalPages => Total <= 0 ? 1 : (int)Math.Ceiling(Total / (double)PageSize);
@@ -191,8 +193,8 @@ else
     private bool IsBusy;
     private string? Error;
     private Guid? SelectedOrderId;
-    private B2BApiClient.AdminOrderDetail? Detail;
-    private int DetailNewStatus;
+    private AdminOrderDetail? Detail;
+    private OrderStatus DetailNewStatus;
     private string? DetailError;
 
     protected override async Task OnInitializedAsync() => await LoadListAsync();
@@ -208,7 +210,7 @@ else
             if (!resp.Success || resp.Data is null)
             {
                 Error = resp.Error?.Message ?? "Liste alınamadı. Yönetici olarak giriş yaptığınızdan emin olun.";
-                ListItems = new List<B2BApiClient.AdminOrderListItem>();
+                ListItems = new List<AdminOrderListItem>();
                 Total = 0;
                 return;
             }
@@ -262,7 +264,7 @@ else
         IsBusy = true;
         try
         {
-            var resp = await Api.UpdateOrderStatusAsync(Detail.OrderId, DetailNewStatus);
+            var resp = await Api.UpdateOrderStatusAsync(Detail.OrderId, (int)DetailNewStatus);
             if (!resp.Success)
             {
                 DetailError = resp.Error?.Message ?? "Güncelleme başarısız.";
@@ -292,21 +294,21 @@ else
         await LoadListAsync();
     }
 
-    private static string StatusLabel(int s) => s switch
+    private static string StatusLabel(OrderStatus s) => s switch
     {
-        0 => "Taslak",
-        1 => "Verildi",
-        2 => "Ödendi",
-        3 => "Kargoda",
-        4 => "İptal",
+        OrderStatus.Draft => "Taslak",
+        OrderStatus.Placed => "Verildi",
+        OrderStatus.Paid => "Ödendi",
+        OrderStatus.Shipped => "Kargoda",
+        OrderStatus.Cancelled => "İptal",
         _ => s.ToString()
     };
 
-    private static (int Value, string Label)[] AllowedNextStatuses(int current) => current switch
+    private static (OrderStatus Value, string Label)[] AllowedNextStatuses(OrderStatus current) => current switch
     {
-        0 => new[] { (1, "Verildi"), (4, "İptal") },
-        1 => new[] { (2, "Ödendi"), (4, "İptal") },
-        2 => new[] { (3, "Kargoda"), (4, "İptal") },
-        _ => Array.Empty<(int, string)>()
+        OrderStatus.Draft => new[] { (OrderStatus.Placed, "Verildi"), (OrderStatus.Cancelled, "İptal") },
+        OrderStatus.Placed => new[] { (OrderStatus.Paid, "Ödendi"), (OrderStatus.Cancelled, "İptal") },
+        OrderStatus.Paid => new[] { (OrderStatus.Shipped, "Kargoda"), (OrderStatus.Cancelled, "İptal") },
+        _ => Array.Empty<(OrderStatus, string)>()
     };
 }

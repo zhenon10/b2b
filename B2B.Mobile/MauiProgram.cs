@@ -27,6 +27,9 @@ using B2B.Mobile.Features.Notifications.Views;
 using B2B.Mobile.Features.AdminNotifications.Services;
 using B2B.Mobile.Features.AdminNotifications.ViewModels;
 using B2B.Mobile.Features.AdminNotifications.Views;
+using B2B.Mobile.Features.Cari.Services;
+using B2B.Mobile.Features.Cari.ViewModels;
+using B2B.Mobile.Features.Cari.Views;
 using ZXing.Net.Maui.Controls;
 #if ANDROID
 using Plugin.Firebase.CloudMessaging;
@@ -130,6 +133,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ProductsService>();
         builder.Services.AddSingleton<ImageUploadService>();
         builder.Services.AddSingleton<OrdersService>();
+        builder.Services.AddSingleton<CariService>();
         builder.Services.AddSingleton<AdminOrdersService>();
         builder.Services.AddSingleton<AdminUsersService>();
         builder.Services.AddSingleton<NotificationsService>();
@@ -162,6 +166,8 @@ public static class MauiProgram
         builder.Services.AddTransient<PendingDealersViewModel>();
         builder.Services.AddTransient<NotificationsViewModel>();
         builder.Services.AddTransient<AdminNotificationComposerViewModel>();
+        builder.Services.AddTransient<CariAccountsViewModel>();
+        builder.Services.AddTransient<CariEntriesViewModel>();
 
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<RegisterPage>();
@@ -179,6 +185,8 @@ public static class MauiProgram
         builder.Services.AddTransient<PendingDealersPage>();
         builder.Services.AddTransient<NotificationsPage>();
         builder.Services.AddTransient<AdminNotificationComposerPage>();
+        builder.Services.AddTransient<CariAccountsPage>();
+        builder.Services.AddTransient<CariEntriesPage>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

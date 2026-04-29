@@ -33,11 +33,6 @@ public static class PublicAssetUrlRewriter
         if (IsLoopbackHost(uri.Host))
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
 
-        // Always rewrite URLs pointing to unroutable private/cgnat hosts.
-        // These are commonly persisted when uploads are created from LAN/Tailscale clients.
-        if (IsPrivateOrCarrierNatIPv4Host(uri.Host))
-            return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
-
         // Optional extra safety net for legacy data.
         if (opts?.RewritePrivateLanUploadUrls == true && IsPrivateOrCarrierNatIPv4Host(uri.Host))
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";

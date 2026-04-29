@@ -1,5 +1,6 @@
 @page "/pending-dealers"
 @using B2B.Admin.Services
+@using B2B.Contracts
 @inject B2BApiClient Api
 
 <PageTitle>Onay bekleyen bayiler</PageTitle>
@@ -51,7 +52,7 @@ else
 }
 
 @code {
-    private List<B2BApiClient.PendingDealerDto> Items { get; set; } = new();
+    private List<PendingDealerDto> Items { get; set; } = new();
     private bool IsLoading = true;
     private bool IsBusy;
     private string? Error;
@@ -68,7 +69,7 @@ else
             if (!resp.Success || resp.Data is null)
             {
                 Error = resp.Error?.Message ?? "Liste alınamadı. Yönetici olarak giriş yaptığınızdan emin olun.";
-                Items = new List<B2BApiClient.PendingDealerDto>();
+                Items = new List<PendingDealerDto>();
                 return;
             }
 

@@ -7,6 +7,7 @@
     xmlns:products="clr-namespace:B2B.Mobile.Features.Products.Views"
     xmlns:cart="clr-namespace:B2B.Mobile.Features.Cart.Views"
     xmlns:orders="clr-namespace:B2B.Mobile.Features.Orders.Views"
+    xmlns:cari="clr-namespace:B2B.Mobile.Features.Cari.Views"
     xmlns:profile="clr-namespace:B2B.Mobile.Features.Auth.Views"
     xmlns:shellCore="clr-namespace:B2B.Mobile.Core.Shell"
     FlyoutBehavior="Disabled"
@@ -60,6 +61,20 @@
             <ShellContent.ContentTemplate>
                 <DataTemplate>
                     <orders:OrderPage />
+                </DataTemplate>
+            </ShellContent.ContentTemplate>
+        </ShellContent>
+
+        <ShellContent Title="Cari" Route="cari">
+            <ShellContent.Icon>
+                <FontImageSource FontFamily="MaterialIcons"
+                                 Glyph="&#xE263;"
+                                 Size="22"
+                                 Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </ShellContent.Icon>
+            <ShellContent.ContentTemplate>
+                <DataTemplate>
+                    <cari:CariAccountsPage />
                 </DataTemplate>
             </ShellContent.ContentTemplate>
         </ShellContent>

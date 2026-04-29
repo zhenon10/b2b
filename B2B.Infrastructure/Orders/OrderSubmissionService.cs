@@ -162,6 +162,8 @@ public sealed class OrderSubmissionService : IOrderSubmissionService
             _db.Orders.Add(order);
             _db.OrderItems.AddRange(items);
 
+            await ApplyDebitForPlacedOrderAsync(order, ct);
+
             if (!string.IsNullOrWhiteSpace(cmd.IdempotencyKey))
             {
                 _db.OrderSubmissions.Add(new OrderSubmission
@@ -222,8 +224,21 @@ public sealed class OrderSubmissionService : IOrderSubmissionService
                     cmd.TraceId));
         }
 
+        var from = order.Status;
+        var to = cmd.Status;
+
         order.Status = cmd.Status;
         order.UpdatedAtUtc = DateTime.UtcNow;
+
+        if (from == OrderStatus.Placed && to == OrderStatus.Paid)
+        {
+            await ApplyCreditForPaidOrderAsync(order, ct);
+        }
+        else if (from == OrderStatus.Placed && to == OrderStatus.Cancelled)
+        {
+            await ApplyCreditForCancelledOrderAsync(order, ct);
+        }
+
         await _db.SaveChangesAsync(ct);
 
         return new UpdateOrderStatusResult(
@@ -269,6 +284,7 @@ public sealed class OrderSubmissionService : IOrderSubmissionService
                 return;
             }
 
+            var wasStatus = order.Status;
             order.Status = OrderStatus.Cancelled;
             order.UpdatedAtUtc = DateTime.UtcNow;
 
@@ -280,6 +296,11 @@ public sealed class OrderSubmissionService : IOrderSubmissionService
                 var p = products.Single(x => x.ProductId == item.ProductId);
                 p.StockQuantity += item.Quantity;
                 p.UpdatedAtUtc = DateTime.UtcNow;
+            }
+
+            if (wasStatus == OrderStatus.Placed)
+            {
+                await ApplyCreditForCancelledOrderAsync(order, ct);
             }
 
             await _db.SaveChangesAsync(ct);
@@ -298,6 +319,96 @@ public sealed class OrderSubmissionService : IOrderSubmissionService
         }
 
         return result;
+    }
+
+    private async Task ApplyDebitForPlacedOrderAsync(Order order, CancellationToken ct)
+    {
+        var account = await _db.CustomerAccounts
+            .FirstOrDefaultAsync(
+                a => a.BuyerUserId == order.BuyerUserId &&
+                     a.SellerUserId == order.SellerUserId &&
+                     a.CurrencyCode == order.CurrencyCode,
+                ct);
+
+        if (account is null)
+        {
+            account = new CustomerAccount
+            {
+                CustomerAccountId = Guid.NewGuid(),
+                BuyerUserId = order.BuyerUserId,
+                SellerUserId = order.SellerUserId,
+                CurrencyCode = order.CurrencyCode,
+                Balance = 0,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _db.CustomerAccounts.Add(account);
+        }
+
+        var amount = order.GrandTotal;
+        if (amount <= 0) return;
+
+        _db.CustomerAccountEntries.Add(new CustomerAccountEntry
+        {
+            CustomerAccountEntryId = Guid.NewGuid(),
+            CustomerAccountId = account.CustomerAccountId,
+            Type = CustomerAccountEntryType.DebitOrderPlaced,
+            CurrencyCode = order.CurrencyCode,
+            Amount = amount,
+            OrderId = order.OrderId,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        account.Balance += amount;
+        account.UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    private async Task ApplyCreditForPaidOrderAsync(Order order, CancellationToken ct)
+    {
+        await ApplyCreditForOrderAsync(order, CustomerAccountEntryType.CreditOrderPaid, ct);
+    }
+
+    private async Task ApplyCreditForCancelledOrderAsync(Order order, CancellationToken ct)
+    {
+        await ApplyCreditForOrderAsync(order, CustomerAccountEntryType.CreditOrderCancelled, ct);
+    }
+
+    private async Task ApplyCreditForOrderAsync(Order order, CustomerAccountEntryType type, CancellationToken ct)
+    {
+        var amount = order.GrandTotal;
+        if (amount <= 0) return;
+
+        var account = await _db.CustomerAccounts
+            .FirstOrDefaultAsync(
+                a => a.BuyerUserId == order.BuyerUserId &&
+                     a.SellerUserId == order.SellerUserId &&
+                     a.CurrencyCode == order.CurrencyCode,
+                ct);
+
+        if (account is null)
+        {
+            // Should never happen: credit implies a prior debit.
+            throw new InvalidOperationException("CustomerAccount not found for order credit.");
+        }
+
+        if (account.Balance < amount)
+        {
+            // Keep invariant Balance >= 0 (and catch inconsistent history early).
+            throw new InvalidOperationException("CustomerAccount balance would become negative.");
+        }
+
+        _db.CustomerAccountEntries.Add(new CustomerAccountEntry
+        {
+            CustomerAccountEntryId = Guid.NewGuid(),
+            CustomerAccountId = account.CustomerAccountId,
+            Type = type,
+            CurrencyCode = order.CurrencyCode,
+            Amount = amount,
+            OrderId = order.OrderId,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        account.Balance -= amount;
+        account.UpdatedAtUtc = DateTime.UtcNow;
     }
 
     private static SubmitOrderResult Fail(int statusCode, string code, string message, IReadOnlyDictionary<string, string[]>? details, string traceId)

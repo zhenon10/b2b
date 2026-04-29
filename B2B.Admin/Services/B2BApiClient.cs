@@ -201,12 +201,52 @@ public sealed class B2BApiClient
                ?? new ApiResponse<object>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
 
+    public async Task<ApiResponse<IReadOnlyList<CustomerAccountSummary>>> GetCustomerCariAsync(Guid buyerUserId, CancellationToken ct = default)
+    {
+        await ApplyAuthAsync();
+        var url = $"/api/v1/admin/cari?buyerUserId={buyerUserId:D}";
+        return await _http.GetFromJsonAsync<ApiResponse<IReadOnlyList<CustomerAccountSummary>>>(url, ct)
+               ?? new ApiResponse<IReadOnlyList<CustomerAccountSummary>>(false, null, new ApiError("invalid_response", "Empty response."), "");
+    }
+
+    public async Task<ApiResponse<PagedResult<CustomerAccountEntryDto>>> GetCustomerCariEntriesAsync(
+        Guid buyerUserId,
+        Guid sellerUserId,
+        string currencyCode,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        await ApplyAuthAsync();
+        var cc = (currencyCode ?? "").Trim().ToUpperInvariant();
+        var url = $"/api/v1/admin/cari/entries?buyerUserId={buyerUserId:D}&sellerUserId={sellerUserId:D}&currencyCode={Uri.EscapeDataString(cc)}&page={page}&pageSize={pageSize}";
+        return await _http.GetFromJsonAsync<ApiResponse<PagedResult<CustomerAccountEntryDto>>>(url, ct)
+               ?? new ApiResponse<PagedResult<CustomerAccountEntryDto>>(false, null, new ApiError("invalid_response", "Empty response."), "");
+    }
+
     public async Task<ApiResponse<ReconcileProductImagesResponse>> ReconcileProductImagesAsync(bool dryRun = true, CancellationToken ct = default)
     {
         await ApplyAuthAsync();
         var resp = await _http.PostAsync($"/api/v1/maintenance/product-images/reconcile?dryRun={dryRun.ToString().ToLowerInvariant()}", content: null, ct);
         return await resp.Content.ReadFromJsonAsync<ApiResponse<ReconcileProductImagesResponse>>(cancellationToken: ct)
                ?? new ApiResponse<ReconcileProductImagesResponse>(false, null, new ApiError("invalid_response", "Empty response."), "");
+    }
+
+    public async Task<ApiResponse<object>> BackfillCariAsync(
+        bool dryRun = true,
+        DateTime? fromUtc = null,
+        DateTime? toUtc = null,
+        int batchSize = 500,
+        CancellationToken ct = default)
+    {
+        await ApplyAuthAsync();
+        var url = $"/api/v1/maintenance/cari/backfill?dryRun={dryRun.ToString().ToLowerInvariant()}&batchSize={batchSize}";
+        if (fromUtc.HasValue) url += $"&fromUtc={Uri.EscapeDataString(fromUtc.Value.ToString("O"))}";
+        if (toUtc.HasValue) url += $"&toUtc={Uri.EscapeDataString(toUtc.Value.ToString("O"))}";
+
+        var resp = await _http.PostAsync(url, content: null, ct);
+        return await resp.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: ct)
+               ?? new ApiResponse<object>(false, null, new ApiError("invalid_response", "Empty response."), "");
     }
 
     private async Task ApplyAuthAsync()

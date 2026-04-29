@@ -1,5 +1,6 @@
 @page "/categories"
 @using B2B.Admin.Services
+@using B2B.Contracts
 @inject B2BApiClient Api
 @inject IJSRuntime Js
 
@@ -89,7 +90,7 @@ else
 @code {
     private bool IsBusy { get; set; } = true;
     private string? Error { get; set; }
-    private List<B2BApiClient.CategoryListItem> Items { get; set; } = new();
+    private List<CategoryListItem> Items { get; set; } = new();
 
     private bool EditorOpen { get; set; }
     private Guid? EditingId { get; set; }
@@ -131,7 +132,7 @@ else
         EditorOpen = true;
     }
 
-    private void StartEdit(B2BApiClient.CategoryListItem c)
+    private void StartEdit(CategoryListItem c)
     {
         Error = null;
         EditingId = c.CategoryId;
@@ -161,7 +162,7 @@ else
 
             if (EditingId is null)
             {
-                var resp = await Api.CreateCategoryAsync(new B2BApiClient.CreateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
+                var resp = await Api.CreateCategoryAsync(new CreateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
                 if (!resp.Success)
                 {
                     Error = resp.Error?.Message ?? "Kategori oluşturulamadı.";
@@ -170,7 +171,7 @@ else
             }
             else
             {
-                var resp = await Api.UpdateCategoryAsync(EditingId.Value, new B2BApiClient.UpdateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
+                var resp = await Api.UpdateCategoryAsync(EditingId.Value, new UpdateCategoryRequest(EditName.Trim(), EditSortOrder, EditIsActive));
                 if (!resp.Success)
                 {
                     Error = resp.Error?.Message ?? "Kategori güncellenemedi.";
@@ -187,7 +188,7 @@ else
         }
     }
 
-    private async Task DeleteAsync(B2BApiClient.CategoryListItem c)
+    private async Task DeleteAsync(CategoryListItem c)
     {
         if (!await Js.InvokeAsync<bool>("confirm", $"'{c.Name}' kategorisini silmek istiyor musunuz? Ürünlerdeki kategori bağlantısı kaldırılır."))
             return;

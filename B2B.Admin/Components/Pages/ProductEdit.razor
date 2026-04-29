@@ -1,6 +1,7 @@
 @page "/products/new"
 @page "/products/{ProductId:guid}"
 @using B2B.Admin.Services
+@using B2B.Contracts
 @inject B2BApiClient Api
 @inject NavigationManager Nav
 @inject IJSRuntime Js
@@ -249,7 +250,7 @@
     private string? Error { get; set; }
 
     private ProductForm Model { get; set; } = new();
-    private List<B2BApiClient.CategoryListItem> Categories { get; set; } = new();
+    private List<CategoryListItem> Categories { get; set; } = new();
 
     private bool ScannerOpen { get; set; }
     private string? ScannerError { get; set; }
@@ -307,7 +308,7 @@
             NormalizeSpecSortOrders();
             if (IsNew)
             {
-                var resp = await Api.CreateProductAsync(new B2BApiClient.CreateProductRequest(
+                var resp = await Api.CreateProductAsync(new CreateProductRequest(
                     SellerUserId: null,
                     CategoryId: Model.ParseCategoryId(),
                     Sku: Model.Sku ?? "",
@@ -319,11 +320,11 @@
                     StockQuantity: Model.StockQuantity,
                     Images: Model.Images
                         .Where(i => !string.IsNullOrWhiteSpace(i.Url))
-                        .Select(i => new B2BApiClient.ProductImage((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
+                        .Select(i => new ProductImageInput((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
                         .ToList(),
                     Specs: Model.Specs
                         .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
-                        .Select(s => new B2BApiClient.ProductSpec((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
+                        .Select(s => new ProductSpecInput((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
                         .ToList(),
                     IsActive: Model.IsActive
                 ));
@@ -339,7 +340,7 @@
             }
             else
             {
-                var resp = await Api.UpdateProductAsync(ProductId!.Value, new B2BApiClient.UpdateProductRequest(
+                var resp = await Api.UpdateProductAsync(ProductId!.Value, new UpdateProductRequest(
                     Sku: Model.Sku ?? "",
                     Name: Model.Name ?? "",
                     Description: Model.Description,
@@ -350,11 +351,11 @@
                     StockQuantity: Model.StockQuantity,
                     Images: Model.Images
                         .Where(i => !string.IsNullOrWhiteSpace(i.Url))
-                        .Select(i => new B2BApiClient.ProductImage((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
+                        .Select(i => new ProductImageInput((i.Url ?? "").Trim(), i.SortOrder, i.IsPrimary))
                         .ToList(),
                     Specs: Model.Specs
                         .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
-                        .Select(s => new B2BApiClient.ProductSpec((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
+                        .Select(s => new ProductSpecInput((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), s.SortOrder))
                         .ToList(),
                     IsActive: Model.IsActive
                 ));

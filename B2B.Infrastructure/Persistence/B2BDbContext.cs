@@ -20,6 +20,8 @@ public sealed class B2BDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderSubmission> OrderSubmissions => Set<OrderSubmission>();
+    public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
+    public DbSet<CustomerAccountEntry> CustomerAccountEntries => Set<CustomerAccountEntry>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AdminDealerApprovalIdempotency> AdminDealerApprovalIdempotencies => Set<AdminDealerApprovalIdempotency>();
     public DbSet<UploadAudit> UploadAudits => Set<UploadAudit>();
@@ -282,6 +284,64 @@ public sealed class B2BDbContext : DbContext
 
             b.HasIndex(x => x.OrderId)
                 .HasDatabaseName("IX_OrderSubmissions_OrderId");
+        });
+
+        modelBuilder.Entity<CustomerAccount>(b =>
+        {
+            b.ToTable("CustomerAccounts");
+            b.HasKey(x => x.CustomerAccountId);
+
+            b.Property(x => x.CurrencyCode).HasColumnType("char(3)").IsRequired();
+            b.Property(x => x.Balance).HasColumnType("decimal(19,4)").IsRequired();
+
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+            b.Property(x => x.RowVer).IsRowVersion().IsConcurrencyToken();
+
+            b.HasOne(x => x.BuyerUser)
+                .WithMany()
+                .HasForeignKey(x => x.BuyerUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            b.HasOne(x => x.SellerUser)
+                .WithMany()
+                .HasForeignKey(x => x.SellerUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            b.HasIndex(x => new { x.BuyerUserId, x.SellerUserId, x.CurrencyCode })
+                .IsUnique()
+                .HasDatabaseName("UX_CustomerAccounts_Buyer_Seller_Currency");
+
+            b.HasIndex(x => new { x.SellerUserId, x.CurrencyCode, x.Balance })
+                .HasDatabaseName("IX_CustomerAccounts_Seller_Currency_Balance");
+
+            b.ToTable(t => t.HasCheckConstraint("CK_CustomerAccounts_Balance_NonNegative", "Balance >= 0"));
+        });
+
+        modelBuilder.Entity<CustomerAccountEntry>(b =>
+        {
+            b.ToTable("CustomerAccountEntries");
+            b.HasKey(x => x.CustomerAccountEntryId);
+
+            b.Property(x => x.Type).HasConversion<byte>().IsRequired();
+            b.Property(x => x.CurrencyCode).HasColumnType("char(3)").IsRequired();
+            b.Property(x => x.Amount).HasColumnType("decimal(19,4)").IsRequired();
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("sysutcdatetime()");
+
+            b.HasOne(x => x.CustomerAccount)
+                .WithMany(x => x.Entries)
+                .HasForeignKey(x => x.CustomerAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.CustomerAccountId, x.CreatedAtUtc })
+                .HasDatabaseName("IX_CustomerAccountEntries_Account_CreatedAt");
+
+            // Prevent duplicate movements for the same order+type (idempotency / retries).
+            b.HasIndex(x => new { x.OrderId, x.Type })
+                .IsUnique()
+                .HasDatabaseName("UX_CustomerAccountEntries_Order_Type")
+                .HasFilter("[OrderId] IS NOT NULL");
+
+            b.ToTable(t => t.HasCheckConstraint("CK_CustomerAccountEntries_Amount_Positive", "Amount > 0"));
         });
 
         modelBuilder.Entity<RefreshToken>(b =>

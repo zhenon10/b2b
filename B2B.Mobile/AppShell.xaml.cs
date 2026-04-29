@@ -2,6 +2,7 @@
 using B2B.Mobile.Core.Shell;
 using B2B.Mobile.Features.Auth.Views;
 using B2B.Mobile.Features.AdminNotifications.Views;
+using B2B.Mobile.Features.Cari.Views;
 using B2B.Mobile.Features.Products.ViewModels;
 using B2B.Mobile.Features.Orders.Views;
 using B2B.Mobile.Features.Products.Views;
@@ -49,6 +50,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("adminBroadcast", typeof(AdminNotificationComposerPage));
         Routing.RegisterRoute("settings", typeof(SettingsPage));
         Routing.RegisterRoute("notifications", typeof(NotificationsPage));
+        Routing.RegisterRoute("cariEntries", typeof(CariEntriesPage));
     }
 
     private void OnNavigated(object? sender, ShellNavigatedEventArgs e)
@@ -129,7 +131,7 @@ public partial class AppShell : Shell
         }
 
         var loc = CurrentState?.Location?.OriginalString ?? "";
-        foreach (var seg in new[] { "products", "cart", "order", "adminHub", "profile" })
+        foreach (var seg in new[] { "products", "cart", "order", "cari", "adminHub", "profile" })
         {
             if (loc.Contains($"/main/{seg}", StringComparison.OrdinalIgnoreCase)
                 || loc.Contains($"//main/{seg}", StringComparison.OrdinalIgnoreCase)
