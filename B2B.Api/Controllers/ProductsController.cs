@@ -541,6 +541,48 @@ public sealed class ProductsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { productId, isActive = product.IsActive }, HttpContext.TraceId()));
     }
 
+    [HttpDelete("{productId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [EnableRateLimiting("write")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(Guid productId, CancellationToken ct)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.ProductId == productId, ct);
+        if (product is null)
+        {
+            return NotFound(ApiResponse<object>.Fail(
+                new ApiError("not_found", "Product not found.", null),
+                HttpContext.TraceId()
+            ));
+        }
+
+        // Products referenced by orders cannot be hard-deleted due to FK constraints.
+        // Return a clear error so the client can offer "Deactivate" instead.
+        var usedInOrders = await _db.OrderItems.AsNoTracking()
+            .AnyAsync(x => x.ProductId == productId, ct);
+        if (usedInOrders)
+        {
+            return Conflict(ApiResponse<object>.Fail(
+                new ApiError("product_in_use", "Product cannot be deleted because it is referenced by existing orders. Deactivate it instead.", null),
+                HttpContext.TraceId()
+            ));
+        }
+
+        // FK relationships are configured as NoAction, so delete dependent rows explicitly.
+        var images = await _db.ProductImages.Where(i => i.ProductId == productId).ToListAsync(ct);
+        if (images.Count > 0) _db.ProductImages.RemoveRange(images);
+
+        var specs = await _db.ProductSpecs.Where(s => s.ProductId == productId).ToListAsync(ct);
+        if (specs.Count > 0) _db.ProductSpecs.RemoveRange(specs);
+
+        _db.Products.Remove(product);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(ApiResponse<object>.Ok(new { productId, deleted = true }, HttpContext.TraceId()));
+    }
+
     private ProductDetail WithPublicImageUrls(ProductDetail dto)
     {
         var req = HttpContext.Request;

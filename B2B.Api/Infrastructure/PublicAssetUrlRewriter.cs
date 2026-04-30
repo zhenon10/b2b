@@ -30,6 +30,12 @@ public static class PublicAssetUrlRewriter
         if (!uri.AbsolutePath.StartsWith(UploadsPathPrefix, StringComparison.OrdinalIgnoreCase))
             return storedUrl;
 
+        // Fix common misconfiguration: URLs stored without the external port (e.g. http://host/uploads/...)
+        // while clients call the API on a non-default port (e.g. :8080). If host matches, prefer the
+        // current request authority.
+        if (HostMatchesButPortDiffers(uri, request))
+            return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
+
         if (IsLoopbackHost(uri.Host))
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
 
@@ -38,6 +44,22 @@ public static class PublicAssetUrlRewriter
             return $"{request.Scheme}://{request.Host}{uri.PathAndQuery}";
 
         return storedUrl;
+    }
+
+    private static bool HostMatchesButPortDiffers(Uri uri, HttpRequest request)
+    {
+        // Compare hosts only (ignore port). For IPv6, Uri.Host contains the address without brackets.
+        if (!uri.Host.Equals(request.Host.Host, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // If either side has no explicit port, Uri/Host will surface defaults (80/443).
+        // We want to rewrite only when the authority differs.
+        var reqPort = request.Host.Port ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80);
+        var uriPort = uri.IsDefaultPort
+            ? (string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80)
+            : uri.Port;
+
+        return reqPort != uriPort;
     }
 
     private static bool IsLoopbackHost(string host)
