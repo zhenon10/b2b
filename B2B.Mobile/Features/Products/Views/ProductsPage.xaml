@@ -72,11 +72,11 @@
         <shell:MainHeaderView Grid.Row="0"
                               LeftCaption="{Binding FilterSummary, StringFormat='Kategori: {0}'}" />
 
-        <!-- Arama + tara: tek satır, tara kompakt -->
+        <!-- Arama + filtre + tara: tek satır, kompakt -->
         <Border Grid.Row="1"
                 Style="{StaticResource InputContainer}"
                 Padding="6,4">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" VerticalOptions="Center">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" VerticalOptions="Center">
                 <SearchBar Grid.Column="0"
                            Placeholder="{x:Static str:AppStrings.Product_SearchPlaceholder}"
                            SemanticProperties.Hint="{x:Static str:AppStrings.Product_SearchHint}"
@@ -86,6 +86,20 @@
                            HorizontalOptions="Fill"
                            VerticalOptions="Center" />
                 <Button Grid.Column="1"
+                        Text="Filtre"
+                        SemanticProperties.Description="Kategori filtresini aç"
+                        BackgroundColor="Transparent"
+                        BorderColor="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource Gray600}}"
+                        BorderWidth="1"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        FontSize="12"
+                        Padding="10,6"
+                        MinimumWidthRequest="60"
+                        HeightRequest="40"
+                        CornerRadius="10"
+                        VerticalOptions="Center"
+                        Command="{Binding OpenFilterCommand}" />
+                <Button Grid.Column="2"
                         Text="Tara"
                         SemanticProperties.Description="{x:Static str:AppStrings.Products_ScanHint}"
                         BackgroundColor="Transparent"
@@ -103,7 +117,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+        <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="8">
             <Border
                 Grid.Row="0"
                 Style="{StaticResource Card}"
@@ -129,8 +143,33 @@
                 </Grid>
             </Border>
 
-            <HorizontalStackLayout
+            <Border
                 Grid.Row="1"
+                Style="{StaticResource Card}"
+                Padding="10,6"
+                IsVisible="{Binding HasCategoryFilter}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalOptions="Center">
+                    <Label
+                        Grid.Column="0"
+                        Text="{Binding CategoryFilterLabel, StringFormat='Kategori: {0}'}"
+                        Style="{StaticResource Caption}"
+                        LineBreakMode="TailTruncation" />
+                    <Button
+                        Grid.Column="1"
+                        Text="✕"
+                        Style="{StaticResource SecondaryButton}"
+                        FontSize="14"
+                        Padding="0"
+                        WidthRequest="36"
+                        HeightRequest="36"
+                        CornerRadius="18"
+                        SemanticProperties.Description="Kategori filtresini temizle"
+                        Command="{Binding ClearCategoryFilterCommand}" />
+                </Grid>
+            </Border>
+
+            <HorizontalStackLayout
+                Grid.Row="2"
                 Spacing="8"
                 IsVisible="{Binding CanManageProducts}"
                 VerticalOptions="Center">
@@ -143,7 +182,7 @@
             </HorizontalStackLayout>
 
             <VerticalStackLayout
-                Grid.Row="2"
+                Grid.Row="3"
                 Spacing="8"
                 IsVisible="{Binding Error, Converter={StaticResource StringNotNullOrEmptyConverter}}">
                 <ui:ApiErrorBannerView Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
@@ -153,7 +192,7 @@
                         Command="{Binding RefreshCommand}" />
             </VerticalStackLayout>
 
-            <Grid Grid.Row="3" RowDefinitions="*" ColumnDefinitions="*">
+            <Grid Grid.Row="4" RowDefinitions="*" ColumnDefinitions="*">
                 <CollectionView
                     IsVisible="{Binding ShowSkeleton}"
                     SelectionMode="None"

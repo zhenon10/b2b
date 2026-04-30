@@ -2,11 +2,13 @@ using System.Collections.ObjectModel;
 using B2B.Contracts;
 using B2B.Mobile.Core.Api;
 using B2B.Mobile.Core.Auth;
+using B2B.Mobile.Core.Connectivity;
 using B2B.Mobile.Features.Products.Models;
 using B2B.Mobile.Features.Products.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.ApplicationModel;
+using System.Globalization;
 
 namespace B2B.Mobile.Features.Products.ViewModels;
 
@@ -16,17 +18,20 @@ public partial class ProductEditViewModel : ObservableObject
     private readonly ImageUploadService _uploads;
     private readonly CategoriesService _categories;
     private readonly IAuthSession _authSession;
+    private readonly ConnectivityService _connectivity;
 
     public ProductEditViewModel(
         ProductsService products,
         ImageUploadService uploads,
         CategoriesService categories,
-        IAuthSession authSession)
+        IAuthSession authSession,
+        ConnectivityService connectivity)
     {
         _products = products;
         _uploads = uploads;
         _categories = categories;
         _authSession = authSession;
+        _connectivity = connectivity;
     }
 
     [ObservableProperty] private string? productId;
@@ -44,6 +49,11 @@ public partial class ProductEditViewModel : ObservableObject
     [ObservableProperty] private int stockQuantity;
     [ObservableProperty] private bool isActive = true;
     [ObservableProperty] private bool canDeleteProduct;
+
+    // Numeric inputs are user-entered strings; we parse/validate before save to handle locale separators.
+    [ObservableProperty] private string dealerPriceText = "0";
+    [ObservableProperty] private string msrpPriceText = "0";
+    [ObservableProperty] private string stockQuantityText = "0";
 
     public ObservableCollection<CategoryListItem> CategoryOptions { get; } = new();
     [ObservableProperty] private CategoryListItem? selectedCategory;
@@ -117,6 +127,9 @@ public partial class ProductEditViewModel : ObservableObject
             MsrpPrice = p.MsrpPrice;
             StockQuantity = p.StockQuantity;
             IsActive = p.IsActive;
+            DealerPriceText = DealerPrice.ToString("0.####", CultureInfo.CurrentCulture);
+            MsrpPriceText = MsrpPrice.ToString("0.####", CultureInfo.CurrentCulture);
+            StockQuantityText = StockQuantity.ToString(CultureInfo.CurrentCulture);
             SelectedCategory = p.CategoryId is { } cid
                 ? CategoryOptions.FirstOrDefault(x => x.CategoryId == cid)
                 : null;
@@ -143,11 +156,16 @@ public partial class ProductEditViewModel : ObservableObject
     {
         if (IsBusy || !CanDeleteProduct) return;
         if (!Guid.TryParse(ProductId, out var id)) return;
+        if (_connectivity.IsOffline)
+        {
+            Error = "İnternet bağlantısı yok. Ürün pasife alınamadı.";
+            return;
+        }
 
         var confirm = await Shell.Current.DisplayAlertAsync(
-            "Ürünü sil",
-            "Bu ürün katalogdan kaldırılacak (pasifleştirilecek). Emin misiniz?",
-            "Sil",
+            "Ürünü pasife al",
+            "Bu ürün pasife alınacak ve katalogda görünmeyecek. Emin misiniz?",
+            "Pasife al",
             "İptal");
         if (!confirm) return;
 
@@ -178,6 +196,14 @@ public partial class ProductEditViewModel : ObservableObject
 
     [RelayCommand]
     private void AddImage() { Images.Add(new ImageRow()); NormalizeImageSort(); }
+
+    [RelayCommand]
+    private void RemoveImage(ImageRow? row)
+    {
+        if (row is null) return;
+        Images.Remove(row);
+        NormalizeImageSort();
+    }
 
     [RelayCommand]
     private async Task AddPhotoFromCameraAsync()
@@ -221,6 +247,12 @@ public partial class ProductEditViewModel : ObservableObject
 
     private async Task UploadAndAddAsync(FileResult file)
     {
+        if (_connectivity.IsOffline)
+        {
+            Error = "İnternet bağlantısı yok. Görsel yüklenemedi.";
+            return;
+        }
+
         IsBusy = true;
         Error = null;
         ApiTraceId = null;
@@ -261,6 +293,33 @@ public partial class ProductEditViewModel : ObservableObject
 
         try
         {
+            if (_connectivity.IsOffline)
+            {
+                Error = "İnternet bağlantısı yok. Kaydedilemedi.";
+                return;
+            }
+
+            // Validate numeric inputs up-front (flexible parsing for comma/dot).
+            if (!TryParseDecimalFlexible(DealerPriceText, out var dealerParsed) || dealerParsed < 0)
+            {
+                Error = "Bayi fiyatı geçersiz. Örn: 12,50";
+                return;
+            }
+            if (!TryParseDecimalFlexible(MsrpPriceText, out var msrpParsed) || msrpParsed < 0)
+            {
+                Error = "Tavsiye satış (MSRP) geçersiz. Örn: 12,50";
+                return;
+            }
+            if (!TryParseIntFlexible(StockQuantityText, out var stockParsed) || stockParsed < 0)
+            {
+                Error = "Stok adedi geçersiz. Örn: 10";
+                return;
+            }
+
+            DealerPrice = dealerParsed;
+            MsrpPrice = msrpParsed;
+            StockQuantity = stockParsed;
+
             NormalizeImageSort();
             NormalizeSpecSort();
 
@@ -351,6 +410,40 @@ public partial class ProductEditViewModel : ObservableObject
     private void NormalizeSpecSort()
     {
         // no-op for now
+    }
+
+    private static bool TryParseDecimalFlexible(string? raw, out decimal value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        var s = raw.Trim();
+
+        // First: current culture.
+        if (decimal.TryParse(s, NumberStyles.Number, CultureInfo.CurrentCulture, out value))
+            return true;
+        // Then: invariant.
+        if (decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+            return true;
+
+        // Finally: try swapping separators (common in TR vs en-US).
+        s = s.Replace(" ", "");
+        var swapped = s.Contains(',') && !s.Contains('.')
+            ? s.Replace(',', '.')
+            : s.Contains('.') && !s.Contains(',')
+                ? s.Replace('.', ',')
+                : s;
+
+        return decimal.TryParse(swapped, NumberStyles.Number, CultureInfo.CurrentCulture, out value)
+               || decimal.TryParse(swapped, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryParseIntFlexible(string? raw, out int value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        var s = raw.Trim().Replace(" ", "");
+        return int.TryParse(s, NumberStyles.Integer, CultureInfo.CurrentCulture, out value)
+               || int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
     public sealed partial class ImageRow : ObservableObject

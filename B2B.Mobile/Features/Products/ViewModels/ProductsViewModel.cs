@@ -40,6 +40,8 @@ public partial class ProductsViewModel : ObservableObject
     [ObservableProperty] private int catalogViewMode;
 
     public string FilterSummary => _catalogFilter.Summary;
+    public bool HasCategoryFilter => _catalogFilter.CategoryId.HasValue || _catalogFilter.UncategorizedOnly;
+    public string CategoryFilterLabel => _catalogFilter.UncategorizedOnly ? "Kategorisiz" : _catalogFilter.Summary;
 
     public int CatalogColumns => CatalogViewMode == 1 ? 2 : 1;
     public bool IsNoPhotoListMode => CatalogViewMode == 2;
@@ -87,6 +89,13 @@ public partial class ProductsViewModel : ObservableObject
     }
 
     public void NotifyFilterSummaryChanged() => OnPropertyChanged(nameof(FilterSummary));
+
+    public void NotifyCategoryFilterChanged()
+    {
+        OnPropertyChanged(nameof(FilterSummary));
+        OnPropertyChanged(nameof(HasCategoryFilter));
+        OnPropertyChanged(nameof(CategoryFilterLabel));
+    }
 
     public async Task RefreshRolesAsync()
     {
@@ -138,6 +147,22 @@ public partial class ProductsViewModel : ObservableObject
         _suppressQueryRefresh = true;
         Query = null;
         _suppressQueryRefresh = false;
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private static Task OpenFilterAsync()
+    {
+        // Categories panel is the Shell flyout on main tabs.
+        Microsoft.Maui.Controls.Shell.Current.FlyoutIsPresented = true;
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task ClearCategoryFilterAsync()
+    {
+        _catalogFilter.SetAll();
+        NotifyCategoryFilterChanged();
         await RefreshAsync();
     }
 

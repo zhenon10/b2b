@@ -1,6 +1,7 @@
 using B2B.Contracts;
 using B2B.Domain.Enums;
 using B2B.Mobile.Core.Api;
+using B2B.Mobile.Core.Connectivity;
 using B2B.Mobile.Features.Cart.Services;
 using B2B.Mobile.Features.Orders.Services;
 using B2B.Mobile.Features.Orders;
@@ -17,6 +18,7 @@ public partial class OrderViewModel : ObservableObject
 
     private readonly CartService _cart;
     private readonly OrdersService _orders;
+    private readonly ConnectivityService _connectivity;
     private string? _idempotencyKey;
     private string? _lastSubmitErrorCode;
     private DateTime? _lastHistorySuccessUtc;
@@ -56,10 +58,13 @@ public partial class OrderViewModel : ObservableObject
     public ObservableCollection<CartLineVm> Lines { get; } = new();
     public ObservableCollection<DealerOrderListItem> HistoryItems { get; } = new();
 
-    public OrderViewModel(CartService cart, OrdersService orders)
+    public bool HasCartLines => Lines.Count > 0;
+
+    public OrderViewModel(CartService cart, OrdersService orders, ConnectivityService connectivity)
     {
         _cart = cart;
         _orders = orders;
+        _connectivity = connectivity;
 
         if (_cart.Lines is INotifyCollectionChanged changed)
             changed.CollectionChanged += (_, __) => Recompute();
@@ -321,6 +326,12 @@ public partial class OrderViewModel : ObservableObject
     private async Task CancelSelectedOrderAsync()
     {
         if (SelectedHistoryDetail is not { } d || !CanCancelSelectedOrder || IsHistoryBusy) return;
+        if (_connectivity.IsOffline)
+        {
+            HistoryDetailError = "İnternet bağlantısı yok. Sipariş iptal edilemedi.";
+            HistoryDetailErrorTraceId = null;
+            return;
+        }
 
         var page = Shell.Current?.CurrentPage;
         if (page is not null)
@@ -368,6 +379,13 @@ public partial class OrderViewModel : ObservableObject
 
         try
         {
+            if (_connectivity.IsOffline)
+            {
+                Error = "İnternet bağlantısı yok. Sipariş gönderilemedi.";
+                ErrorTraceId = null;
+                return;
+            }
+
             if (!CanSubmit)
             {
                 Error ??= "Sipariş göndermeye hazır değil.";
@@ -429,6 +447,14 @@ public partial class OrderViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private static Task GoToCartAsync() =>
+        Microsoft.Maui.Controls.Shell.Current.GoToAsync("//main/cart");
+
+    [RelayCommand]
+    private static Task GoToProductsAsync() =>
+        Microsoft.Maui.Controls.Shell.Current.GoToAsync("//main/products");
+
+    [RelayCommand]
     private void ResetIdempotency()
     {
         _idempotencyKey = Guid.NewGuid().ToString("N");
@@ -450,6 +476,7 @@ public partial class OrderViewModel : ObservableObject
                 line.UnitPrice,
                 line.LineTotal,
                 line.CurrencyCode.ToUpperInvariant()));
+        OnPropertyChanged(nameof(HasCartLines));
 
         Total = _cart.Total;
 

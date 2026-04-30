@@ -49,7 +49,7 @@ public partial class ProductsPage : ContentPage, IQueryAttributable
     {
         base.OnAppearing();
         _catalogFilter.Changed += OnCatalogFilterChanged;
-        _vm.NotifyFilterSummaryChanged();
+        _vm.NotifyCategoryFilterChanged();
         await _vm.RefreshRolesAsync();
         ApplyCatalogLayout();
         UpdateLayoutToggleIcon();
@@ -75,7 +75,7 @@ public partial class ProductsPage : ContentPage, IQueryAttributable
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            _vm.NotifyFilterSummaryChanged();
+            _vm.NotifyCategoryFilterChanged();
             await _vm.RefreshCommand.ExecuteAsync(null);
         });
     }
