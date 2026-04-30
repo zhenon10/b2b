@@ -89,6 +89,50 @@ public partial class ProductsPage : ContentPage, IQueryAttributable
         await _vm.OpenCommand.ExecuteAsync(item);
     }
 
+    private void OnProductImageTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is not Image img)
+            return;
+
+        var url = (img.BindingContext as ProductListItem)?.PrimaryImageUrl;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            img.Source = Placeholder();
+            return;
+        }
+
+        if (!Uri.TryCreate(BustUrl(url), UriKind.Absolute, out var uri))
+        {
+            img.Source = Placeholder();
+            return;
+        }
+
+        // Simple retry: disable caching and add cache-buster.
+        img.Source = new UriImageSource
+        {
+            Uri = uri,
+            CachingEnabled = false
+        };
+    }
+
+    private static string BustUrl(string url)
+    {
+        var trimmed = url.Trim();
+        var sep = trimmed.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return $"{trimmed}{sep}r={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+    }
+
+    private static FontImageSource Placeholder() =>
+        new()
+        {
+            FontFamily = "MaterialIcons",
+            Glyph = "\uE54E",
+            Size = 44,
+            Color = Application.Current?.RequestedTheme == AppTheme.Dark
+                ? Color.FromArgb("#6C757D")
+                : Color.FromArgb("#ADB5BD")
+        };
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("refreshProducts", out var refreshRaw) && refreshRaw is bool refresh && refresh)

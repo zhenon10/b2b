@@ -30,8 +30,34 @@
 
                             <Label Grid.Row="1" Grid.Column="0" Text="{Binding Sku}" Style="{StaticResource Caption}" />
 
-                            <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8">
-                                <Label Text="{Binding Quantity, StringFormat='Adet: {0}'}" Style="{StaticResource Caption}" />
+                            <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="10">
+                                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                    <Button Text="−"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Padding="0"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="18"
+                                            SemanticProperties.Hint="Adedi azaltır"
+                                            Command="{Binding BindingContext.DecrementCommand, Source={x:Reference Name=CartPageRoot}}"
+                                            CommandParameter="{Binding .}" />
+                                    <Border Style="{StaticResource InputContainer}" Padding="10,6" VerticalOptions="Center">
+                                        <Label Text="{Binding Quantity}"
+                                               FontAttributes="Bold"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               SemanticProperties.Description="{Binding Quantity, StringFormat='Adet {0}'}" />
+                                    </Border>
+                                    <Button Text="+"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Padding="0"
+                                            WidthRequest="36"
+                                            HeightRequest="36"
+                                            CornerRadius="18"
+                                            SemanticProperties.Hint="Adedi artırır"
+                                            Command="{Binding BindingContext.IncrementCommand, Source={x:Reference Name=CartPageRoot}}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
                                 <HorizontalStackLayout Spacing="4">
                                     <Label Text="{Binding UnitPrice, StringFormat='Birim: {0:0.##}'}" Style="{StaticResource Caption}" />
                                     <Label Text="{Binding CurrencyCode}" Style="{StaticResource Caption}" FontAttributes="Bold" />

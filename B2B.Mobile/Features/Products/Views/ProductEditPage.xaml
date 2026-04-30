@@ -6,7 +6,7 @@
     xmlns:ui="clr-namespace:B2B.Mobile.Core.Ui;assembly=B2B.Mobile"
     Title="Ürün">
 
-    <ScrollView>
+    <ScrollView x:Name="RootScroll">
         <VerticalStackLayout Padding="16" Spacing="12">
             <ui:ApiErrorBannerView Message="{Binding Error}" TraceId="{Binding ApiTraceId}" />
             <Border Style="{StaticResource Card}" Padding="16">
@@ -14,8 +14,14 @@
                     <Label Text="Temel bilgiler" Style="{StaticResource Title2}" />
 
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                        <Border Grid.Column="0" Style="{StaticResource InputContainer}">
-                            <Entry Placeholder="SKU" Text="{Binding Sku}" />
+                        <Border x:Name="SkuBorder" Grid.Column="0" Style="{StaticResource InputContainer}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding SkuError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                    <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Entry x:Name="SkuEntry" Placeholder="SKU" Text="{Binding Sku}" />
                         </Border>
                         <Button Grid.Column="1"
                                 Text="Tara"
@@ -24,9 +30,23 @@
                                 VerticalOptions="Center"
                                 Command="{Binding ScanSkuCommand}" />
                     </Grid>
-                    <Border Style="{StaticResource InputContainer}">
-                        <Entry Placeholder="Ürün adı" Text="{Binding Name}" />
+                    <Label Text="{Binding SkuError}"
+                           Style="{StaticResource Caption}"
+                           TextColor="{StaticResource Error}"
+                           IsVisible="{Binding SkuError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                    <Border x:Name="NameBorder" Style="{StaticResource InputContainer}">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding NameError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                <Setter Property="StrokeThickness" Value="2" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <Entry x:Name="NameEntry" Placeholder="Ürün adı" Text="{Binding Name}" />
                     </Border>
+                    <Label Text="{Binding NameError}"
+                           Style="{StaticResource Caption}"
+                           TextColor="{StaticResource Error}"
+                           IsVisible="{Binding NameError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
                     <Border Style="{StaticResource InputContainer}">
                         <Editor Placeholder="Açıklama" Text="{Binding Description}" AutoSize="TextChanges" />
                     </Border>
@@ -43,24 +63,74 @@
                         <Label Grid.Row="0" Grid.Column="0" Text="Para birimi" Style="{StaticResource Caption}" />
                         <Label Grid.Row="0" Grid.Column="1" Text="Stok adedi" Style="{StaticResource Caption}" />
 
-                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource InputContainer}">
-                            <Entry Placeholder="TRY" Text="{Binding CurrencyCode}" />
+                        <Border x:Name="CurrencyBorder" Grid.Row="1" Grid.Column="0" Style="{StaticResource InputContainer}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding CurrencyCodeError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                    <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Entry x:Name="CurrencyEntry" Placeholder="TRY" Text="{Binding CurrencyCode}" />
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource InputContainer}">
-                            <Entry Placeholder="0" Keyboard="Numeric" Text="{Binding StockQuantityText}" />
+                        <Border x:Name="StockBorder" Grid.Row="1" Grid.Column="1" Style="{StaticResource InputContainer}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding StockQuantityError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                    <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Entry x:Name="StockEntry" Placeholder="0" Keyboard="Numeric" Text="{Binding StockQuantityText}" />
                         </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="{Binding CurrencyCodeError}"
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Error}"
+                               IsVisible="{Binding CurrencyCodeError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding StockQuantityError}"
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Error}"
+                               HorizontalTextAlignment="End"
+                               IsVisible="{Binding StockQuantityError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
                     </Grid>
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="6">
                         <Label Grid.Row="0" Grid.Column="0" Text="Bayi fiyatı" Style="{StaticResource Caption}" />
                         <Label Grid.Row="0" Grid.Column="1" Text="Tavsiye satış (MSRP)" Style="{StaticResource Caption}" />
 
-                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource InputContainer}">
-                            <Entry Placeholder="0,00" Keyboard="Numeric" Text="{Binding DealerPriceText}" />
+                        <Border x:Name="DealerBorder" Grid.Row="1" Grid.Column="0" Style="{StaticResource InputContainer}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding DealerPriceError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                    <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Entry x:Name="DealerEntry" Placeholder="0,00" Keyboard="Numeric" Text="{Binding DealerPriceText}" />
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource InputContainer}">
-                            <Entry Placeholder="0,00" Keyboard="Numeric" Text="{Binding MsrpPriceText}" />
+                        <Border x:Name="MsrpBorder" Grid.Row="1" Grid.Column="1" Style="{StaticResource InputContainer}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding MsrpPriceError, Converter={StaticResource StringNotNullOrEmptyConverter}}" Value="True">
+                                    <Setter Property="Stroke" Value="{StaticResource Error}" />
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Entry x:Name="MsrpEntry" Placeholder="0,00" Keyboard="Numeric" Text="{Binding MsrpPriceText}" />
                         </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="{Binding DealerPriceError}"
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Error}"
+                               IsVisible="{Binding DealerPriceError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding MsrpPriceError}"
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Error}"
+                               HorizontalTextAlignment="End"
+                               IsVisible="{Binding MsrpPriceError, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
                     </Grid>
 
                     <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
@@ -91,17 +161,52 @@
                     <CollectionView ItemsSource="{Binding Images}" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10" Padding="0,6">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="10" Padding="0,6">
                                     <RadioButton GroupName="primaryImg" IsChecked="{Binding IsPrimary}" VerticalOptions="Center" />
                                     <Border StrokeShape="RoundRectangle 10" BackgroundColor="{AppThemeBinding Light='#F1F3F5', Dark='#1F2226'}">
-                                        <Image Source="{Binding Url, Converter={StaticResource UrlToImageSourceConverter}}"
-                                               HeightRequest="44"
-                                               WidthRequest="44"
-                                               Aspect="AspectFill"
-                                               SemanticProperties.Description="Ürün görseli önizlemesi" />
+                                        <Grid IsClippedToBounds="True">
+                                            <Image Source="{Binding Url, Converter={StaticResource UrlToImageSourceConverter}}"
+                                                   HeightRequest="44"
+                                                   WidthRequest="44"
+                                                   Aspect="AspectFill"
+                                                   SemanticProperties.Description="Ürün görseli önizlemesi" />
+                                            <Border
+                                                Padding="6,2"
+                                                StrokeThickness="0"
+                                                BackgroundColor="{StaticResource Primary}"
+                                                HorizontalOptions="Start"
+                                                VerticalOptions="Start"
+                                                Margin="6"
+                                                StrokeShape="RoundRectangle 8"
+                                                IsVisible="{Binding IsPrimary}">
+                                                <Label Text="Birincil" FontSize="10" TextColor="White" FontAttributes="Bold" />
+                                            </Border>
+                                        </Grid>
                                     </Border>
                                     <Entry Grid.Column="2" Placeholder="https://..." Text="{Binding Url}" />
-                                    <Button Grid.Column="3"
+                                    <VerticalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                                        <Button Text="↑"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Padding="0"
+                                                WidthRequest="36"
+                                                HeightRequest="18"
+                                                CornerRadius="9"
+                                                SemanticProperties.Description="Görseli yukarı taşı"
+                                                Command="{Binding BindingContext.MoveImageUpCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding .}"
+                                                IsEnabled="{Binding CanMoveUp}" />
+                                        <Button Text="↓"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Padding="0"
+                                                WidthRequest="36"
+                                                HeightRequest="18"
+                                                CornerRadius="9"
+                                                SemanticProperties.Description="Görseli aşağı taşı"
+                                                Command="{Binding BindingContext.MoveImageDownCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding .}"
+                                                IsEnabled="{Binding CanMoveDown}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="4"
                                             Text="Sil"
                                             Style="{StaticResource SecondaryButton}"
                                             Padding="0"
@@ -128,9 +233,41 @@
                     <CollectionView ItemsSource="{Binding Specs}" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Padding="0,6">
-                                    <Entry Placeholder="Anahtar" Text="{Binding Key}" />
-                                    <Entry Grid.Column="1" Placeholder="Değer" Text="{Binding Value}" />
+                                <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="10" Padding="0,6">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                                        <Button Text="↑"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Padding="0"
+                                                WidthRequest="36"
+                                                HeightRequest="18"
+                                                CornerRadius="9"
+                                                IsEnabled="{Binding CanMoveUp}"
+                                                SemanticProperties.Description="Özelliği yukarı taşı"
+                                                Command="{Binding BindingContext.MoveSpecUpCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Text="↓"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Padding="0"
+                                                WidthRequest="36"
+                                                HeightRequest="18"
+                                                CornerRadius="9"
+                                                IsEnabled="{Binding CanMoveDown}"
+                                                SemanticProperties.Description="Özelliği aşağı taşı"
+                                                Command="{Binding BindingContext.MoveSpecDownCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding .}" />
+                                    </VerticalStackLayout>
+                                    <Entry Grid.Column="1" Placeholder="Anahtar" Text="{Binding Key}" />
+                                    <Entry Grid.Column="2" Placeholder="Değer" Text="{Binding Value}" />
+                                    <Button Grid.Column="3"
+                                            Text="Sil"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Padding="0"
+                                            WidthRequest="56"
+                                            HeightRequest="40"
+                                            CornerRadius="12"
+                                            SemanticProperties.Description="Bu özellik satırını sil"
+                                            Command="{Binding BindingContext.RemoveSpecCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                            CommandParameter="{Binding .}" />
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
@@ -148,7 +285,7 @@
             <Button Text="Kaydet"
                     SemanticProperties.Hint="Ürün bilgilerini sunucuya kaydeder"
                     Command="{Binding SaveCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}" />
+                    IsEnabled="{Binding CanSave}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

@@ -276,11 +276,36 @@
                                             HeightRequest="168"
                                             StrokeShape="RoundRectangle 12,12,0,0">
                                         <Grid IsClippedToBounds="True">
-                                            <Image Source="{Binding PrimaryImageUrl, Converter={StaticResource UrlToImageSourceConverter}}"
+                                            <!-- Placeholder (boş/bozuk görselde kart boş kalmasın) -->
+                                            <Image Aspect="AspectFit"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center"
+                                                   Opacity="0.75"
+                                                   SemanticProperties.Description="Ürün görseli yer tutucu">
+                                                <Image.Source>
+                                                    <FontImageSource FontFamily="MaterialIcons"
+                                                                     Glyph="&#xE54E;"
+                                                                     Size="44"
+                                                                     Color="{AppThemeBinding Light=#ADB5BD, Dark=#6C757D}" />
+                                                </Image.Source>
+                                            </Image>
+
+                                            <!-- Remote image -->
+                                            <Image x:Name="PrimaryImage"
+                                                   Source="{Binding PrimaryImageUrl, Converter={StaticResource UrlToImageSourceConverter}}"
                                                    Aspect="AspectFill"
                                                    HorizontalOptions="Fill"
                                                    VerticalOptions="Fill"
-                                                   SemanticProperties.Description="Ürün görseli" />
+                                                   SemanticProperties.Description="Ürün görseli">
+                                                <Image.GestureRecognizers>
+                                                    <TapGestureRecognizer Tapped="OnProductImageTapped" />
+                                                </Image.GestureRecognizers>
+                                            </Image>
+
+                                            <ActivityIndicator IsRunning="{Binding Source={x:Reference PrimaryImage}, Path=IsLoading}"
+                                                               IsVisible="{Binding Source={x:Reference PrimaryImage}, Path=IsLoading}"
+                                                               HorizontalOptions="Center"
+                                                               VerticalOptions="Center" />
                                         </Grid>
                                     </Border>
 

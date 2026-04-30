@@ -5,6 +5,8 @@ using B2B.Mobile.Core.Connectivity;
 using B2B.Mobile.Features.Cart.Services;
 using B2B.Mobile.Features.Orders.Services;
 using B2B.Mobile.Features.Orders;
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
@@ -425,10 +427,31 @@ public partial class OrderViewModel : ObservableObject
             _lastSubmitErrorCode = null;
             OnPropertyChanged(nameof(CanRetryWithNewKey));
 
+            // Keep history stale so "Siparişlerim" CTA can force refresh.
+            _lastHistorySuccessUtc = null;
             if (DealerPanel == 1)
                 await LoadHistoryPageAsync(1, clearSelection: true);
-            else
-                _lastHistorySuccessUtc = null;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                var msg = $"Sipariş #{resp.Data.OrderNumber} alındı";
+                var snack = Snackbar.Make(
+                    msg,
+                    () =>
+                    {
+                        DealerPanel = 1;
+                        _ = EnsureHistoryFreshAsync(TimeSpan.Zero);
+                    },
+                    "Siparişlerim’e git",
+                    TimeSpan.FromSeconds(4),
+                    new SnackbarOptions
+                    {
+                        BackgroundColor = Color.FromArgb("#1F1F1F"),
+                        TextColor = Colors.White,
+                        ActionButtonTextColor = Color.FromArgb("#AC99EA")
+                    });
+                await snack.Show();
+            });
         }
         catch (OperationCanceledException)
         {

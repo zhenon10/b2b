@@ -27,6 +27,9 @@ project.lock.json
 publish/
 dist/
 
+# Local tools (adb, platform-tools, etc.)
+tools/
+
 # OS
 Thumbs.db
 Desktop.ini

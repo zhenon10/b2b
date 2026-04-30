@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using B2B.Mobile.Features.Cart.Models;
 using B2B.Mobile.Features.Cart.Services;
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -29,6 +31,45 @@ public partial class CartViewModel : ObservableObject
     {
         _cart.Remove(line.ProductId);
         Sync();
+    }
+
+    [RelayCommand]
+    private void Increment(CartLine line)
+    {
+        _cart.Increment(line.ProductId, 1);
+        Sync();
+    }
+
+    [RelayCommand]
+    private void Decrement(CartLine line)
+    {
+        var willRemove = line.Quantity <= 1;
+        _cart.Decrement(line.ProductId, 1);
+        Sync();
+
+        if (!willRemove)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            var removed = line;
+            var snack = Snackbar.Make(
+                "Sepetten çıkarıldı",
+                () =>
+                {
+                    _cart.AddOrIncrement(removed with { Quantity = 1 });
+                    Sync();
+                },
+                "Geri al",
+                TimeSpan.FromSeconds(3),
+                new SnackbarOptions
+                {
+                    BackgroundColor = Color.FromArgb("#1F1F1F"),
+                    TextColor = Colors.White,
+                    ActionButtonTextColor = Color.FromArgb("#AC99EA")
+                });
+            await snack.Show();
+        });
     }
 
     [RelayCommand]

@@ -49,6 +49,30 @@ public sealed class CartService
         SaveToPreferences();
     }
 
+    public void Increment(Guid productId, int amount = 1)
+    {
+        if (amount <= 0) return;
+        var existing = _lines.FirstOrDefault(x => x.ProductId == productId);
+        if (existing is null) return;
+        _lines.Remove(existing);
+        _lines.Add(existing with { Quantity = existing.Quantity + amount });
+        SaveToPreferences();
+    }
+
+    public void Decrement(Guid productId, int amount = 1)
+    {
+        if (amount <= 0) return;
+        var existing = _lines.FirstOrDefault(x => x.ProductId == productId);
+        if (existing is null) return;
+
+        var nextQty = existing.Quantity - amount;
+        _lines.Remove(existing);
+        if (nextQty > 0)
+            _lines.Add(existing with { Quantity = nextQty });
+
+        SaveToPreferences();
+    }
+
     public void Remove(Guid productId)
     {
         var existing = _lines.FirstOrDefault(x => x.ProductId == productId);

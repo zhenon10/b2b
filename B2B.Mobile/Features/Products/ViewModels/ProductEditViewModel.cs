@@ -55,11 +55,102 @@ public partial class ProductEditViewModel : ObservableObject
     [ObservableProperty] private string msrpPriceText = "0";
     [ObservableProperty] private string stockQuantityText = "0";
 
+    // Used by view to scroll/focus first invalid input after save attempt.
+    [ObservableProperty] private string? focusField;
+
+    private bool _suppressCurrencyNormalize;
+
+    // Field-level validation (inline under inputs)
+    [ObservableProperty] private string? skuError;
+    [ObservableProperty] private string? nameError;
+    [ObservableProperty] private string? currencyCodeError;
+    [ObservableProperty] private string? dealerPriceError;
+    [ObservableProperty] private string? msrpPriceError;
+    [ObservableProperty] private string? stockQuantityError;
+
+    public bool CanSave =>
+        !IsBusy
+        && string.IsNullOrWhiteSpace(SkuError)
+        && string.IsNullOrWhiteSpace(NameError)
+        && string.IsNullOrWhiteSpace(CurrencyCodeError)
+        && string.IsNullOrWhiteSpace(DealerPriceError)
+        && string.IsNullOrWhiteSpace(MsrpPriceError)
+        && string.IsNullOrWhiteSpace(StockQuantityError)
+        && !string.IsNullOrWhiteSpace(Sku)
+        && !string.IsNullOrWhiteSpace(Name)
+        && !string.IsNullOrWhiteSpace(CurrencyCode);
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanSave));
+    partial void OnSkuChanged(string value)
+    {
+        ValidateSku();
+        OnPropertyChanged(nameof(CanSave));
+    }
+    partial void OnNameChanged(string value)
+    {
+        ValidateName();
+        OnPropertyChanged(nameof(CanSave));
+    }
+    partial void OnCurrencyCodeChanged(string value)
+    {
+        if (!_suppressCurrencyNormalize)
+        {
+            var upper = (value ?? "").Trim().ToUpperInvariant();
+            if (!string.Equals(value, upper, StringComparison.Ordinal))
+            {
+                _suppressCurrencyNormalize = true;
+                CurrencyCode = upper;
+                _suppressCurrencyNormalize = false;
+            }
+        }
+        ValidateCurrencyCode();
+        OnPropertyChanged(nameof(CanSave));
+    }
+    partial void OnDealerPriceTextChanged(string value)
+    {
+        ValidateDealerPrice();
+        OnPropertyChanged(nameof(CanSave));
+    }
+    partial void OnMsrpPriceTextChanged(string value)
+    {
+        ValidateMsrpPrice();
+        OnPropertyChanged(nameof(CanSave));
+    }
+    partial void OnStockQuantityTextChanged(string value)
+    {
+        ValidateStockQuantity();
+        OnPropertyChanged(nameof(CanSave));
+    }
+
     public ObservableCollection<CategoryListItem> CategoryOptions { get; } = new();
     [ObservableProperty] private CategoryListItem? selectedCategory;
 
     public ObservableCollection<ImageRow> Images { get; } = new();
     public ObservableCollection<SpecRow> Specs { get; } = new();
+
+    private void AttachImageRow(ImageRow row)
+    {
+        row.PropertyChanged += OnImageRowPropertyChanged;
+    }
+
+    private void DetachImageRow(ImageRow row)
+    {
+        row.PropertyChanged -= OnImageRowPropertyChanged;
+    }
+
+    private void OnImageRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not ImageRow row) return;
+        if (e.PropertyName == nameof(ImageRow.IsPrimary) && row.IsPrimary)
+        {
+            // Ensure single primary (radio button group doesn't automatically sync ViewModel properties)
+            foreach (var other in Images)
+            {
+                if (!ReferenceEquals(other, row) && other.IsPrimary)
+                    other.IsPrimary = false;
+            }
+        }
+    }
 
     /// <summary>Sayfa navigasyonundan çağrılır (yeni üründe ProductId null kalabildiği için QueryProperty ile güvenilmez).</summary>
     [RelayCommand]
@@ -68,6 +159,9 @@ public partial class ProductEditViewModel : ObservableObject
         Error = null;
         ApiTraceId = null;
         CanDeleteProduct = false;
+        ClearInlineErrors();
+        foreach (var r in Images.ToList())
+            DetachImageRow(r);
         Images.Clear();
         Specs.Clear();
         CategoryOptions.Clear();
@@ -135,12 +229,20 @@ public partial class ProductEditViewModel : ObservableObject
                 : null;
 
             foreach (var img in p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.SortOrder))
-                Images.Add(new ImageRow { Url = img.Url, IsPrimary = img.IsPrimary });
+            {
+                var row = new ImageRow { Url = img.Url, IsPrimary = img.IsPrimary, SortOrder = img.SortOrder };
+                AttachImageRow(row);
+                Images.Add(row);
+            }
             NormalizeImageSort();
 
             foreach (var spec in p.Specs.OrderBy(s => s.SortOrder))
-                Specs.Add(new SpecRow { Key = spec.Key, Value = spec.Value });
+                Specs.Add(new SpecRow { Key = spec.Key, Value = spec.Value, SortOrder = spec.SortOrder });
             NormalizeSpecSort();
+
+            // Ensure inline validations reflect loaded values.
+            ValidateAll();
+            OnPropertyChanged(nameof(CanSave));
         }
         finally
         {
@@ -195,13 +297,40 @@ public partial class ProductEditViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddImage() { Images.Add(new ImageRow()); NormalizeImageSort(); }
+    private void AddImage()
+    {
+        var row = new ImageRow { SortOrder = Images.Count };
+        AttachImageRow(row);
+        Images.Add(row);
+        NormalizeImageSort();
+    }
 
     [RelayCommand]
     private void RemoveImage(ImageRow? row)
     {
         if (row is null) return;
+        DetachImageRow(row);
         Images.Remove(row);
+        NormalizeImageSort();
+    }
+
+    [RelayCommand]
+    private void MoveImageUp(ImageRow? row)
+    {
+        if (row is null) return;
+        var idx = Images.IndexOf(row);
+        if (idx <= 0) return;
+        Images.Move(idx, idx - 1);
+        NormalizeImageSort();
+    }
+
+    [RelayCommand]
+    private void MoveImageDown(ImageRow? row)
+    {
+        if (row is null) return;
+        var idx = Images.IndexOf(row);
+        if (idx < 0 || idx >= Images.Count - 1) return;
+        Images.Move(idx, idx + 1);
         NormalizeImageSort();
     }
 
@@ -267,11 +396,14 @@ public partial class ProductEditViewModel : ObservableObject
             }
 
             // Add new image as primary if first.
-            Images.Add(new ImageRow
+            var row = new ImageRow
             {
                 Url = resp.Data,
-                IsPrimary = Images.Count == 0
-            });
+                IsPrimary = Images.Count == 0,
+                SortOrder = Images.Count
+            };
+            AttachImageRow(row);
+            Images.Add(row);
             NormalizeImageSort();
         }
         finally
@@ -282,6 +414,34 @@ public partial class ProductEditViewModel : ObservableObject
 
     [RelayCommand]
     private void AddSpec() { Specs.Add(new SpecRow()); NormalizeSpecSort(); }
+
+    [RelayCommand]
+    private void RemoveSpec(SpecRow? row)
+    {
+        if (row is null) return;
+        Specs.Remove(row);
+        NormalizeSpecSort();
+    }
+
+    [RelayCommand]
+    private void MoveSpecUp(SpecRow? row)
+    {
+        if (row is null) return;
+        var idx = Specs.IndexOf(row);
+        if (idx <= 0) return;
+        Specs.Move(idx, idx - 1);
+        NormalizeSpecSort();
+    }
+
+    [RelayCommand]
+    private void MoveSpecDown(SpecRow? row)
+    {
+        if (row is null) return;
+        var idx = Specs.IndexOf(row);
+        if (idx < 0 || idx >= Specs.Count - 1) return;
+        Specs.Move(idx, idx + 1);
+        NormalizeSpecSort();
+    }
 
     [RelayCommand]
     private async Task SaveAsync()
@@ -299,20 +459,29 @@ public partial class ProductEditViewModel : ObservableObject
                 return;
             }
 
+            if (!ValidateAll())
+            {
+                Error = "Lütfen işaretli alanları düzeltin.";
+                return;
+            }
+
             // Validate numeric inputs up-front (flexible parsing for comma/dot).
             if (!TryParseDecimalFlexible(DealerPriceText, out var dealerParsed) || dealerParsed < 0)
             {
-                Error = "Bayi fiyatı geçersiz. Örn: 12,50";
+                DealerPriceError = "Geçersiz. Örn: 12,50";
+                Error = "Lütfen işaretli alanları düzeltin.";
                 return;
             }
             if (!TryParseDecimalFlexible(MsrpPriceText, out var msrpParsed) || msrpParsed < 0)
             {
-                Error = "Tavsiye satış (MSRP) geçersiz. Örn: 12,50";
+                MsrpPriceError = "Geçersiz. Örn: 12,50";
+                Error = "Lütfen işaretli alanları düzeltin.";
                 return;
             }
             if (!TryParseIntFlexible(StockQuantityText, out var stockParsed) || stockParsed < 0)
             {
-                Error = "Stok adedi geçersiz. Örn: 10";
+                StockQuantityError = "Geçersiz. Örn: 10";
+                Error = "Lütfen işaretli alanları düzeltin.";
                 return;
             }
 
@@ -323,7 +492,10 @@ public partial class ProductEditViewModel : ObservableObject
             NormalizeImageSort();
             NormalizeSpecSort();
 
+            // Keep explicit sort order; normalize to 0..n-1 before sending.
+            NormalizeImageSort();
             var images = Images
+                .OrderBy(i => i.SortOrder)
                 .Where(i => !string.IsNullOrWhiteSpace(i.Url))
                 .Select((i, idx) => new ProductImageInput((i.Url ?? "").Trim(), idx, i.IsPrimary))
                 .ToList();
@@ -336,6 +508,7 @@ public partial class ProductEditViewModel : ObservableObject
             }
 
             var specs = Specs
+                .OrderBy(s => s.SortOrder)
                 .Where(s => !string.IsNullOrWhiteSpace(s.Key) && !string.IsNullOrWhiteSpace(s.Value))
                 .Select((s, idx) => new ProductSpecInput((s.Key ?? "").Trim(), (s.Value ?? "").Trim(), idx))
                 .ToList();
@@ -402,14 +575,26 @@ public partial class ProductEditViewModel : ObservableObject
 
     private void NormalizeImageSort()
     {
-        // ensure primary exists if any
-        if (Images.Count > 0 && Images.All(i => !i.IsPrimary))
-            Images[0].IsPrimary = true;
-    }
+        // normalize sort order to current visual order
+        for (var i = 0; i < Images.Count; i++)
+        {
+            Images[i].SortOrder = i;
+            Images[i].CanMoveUp = i > 0;
+            Images[i].CanMoveDown = i < Images.Count - 1;
+        }
 
-    private void NormalizeSpecSort()
-    {
-        // no-op for now
+        // ensure single primary if any
+        if (Images.Count == 0) return;
+
+        var primary = Images.FirstOrDefault(i => i.IsPrimary);
+        if (primary is null)
+        {
+            Images[0].IsPrimary = true;
+            return;
+        }
+
+        for (var i = 0; i < Images.Count; i++)
+            Images[i].IsPrimary = ReferenceEquals(Images[i], primary);
     }
 
     private static bool TryParseDecimalFlexible(string? raw, out decimal value)
@@ -450,12 +635,128 @@ public partial class ProductEditViewModel : ObservableObject
     {
         [ObservableProperty] private string? url;
         [ObservableProperty] private bool isPrimary;
+        [ObservableProperty] private int sortOrder;
+        [ObservableProperty] private bool canMoveUp;
+        [ObservableProperty] private bool canMoveDown;
     }
 
     public sealed partial class SpecRow : ObservableObject
     {
         [ObservableProperty] private string? key;
         [ObservableProperty] private string? value;
+        [ObservableProperty] private int sortOrder;
+        [ObservableProperty] private bool canMoveUp;
+        [ObservableProperty] private bool canMoveDown;
+    }
+
+    private void NormalizeSpecSort()
+    {
+        for (var i = 0; i < Specs.Count; i++)
+        {
+            Specs[i].SortOrder = i;
+            Specs[i].CanMoveUp = i > 0;
+            Specs[i].CanMoveDown = i < Specs.Count - 1;
+        }
+    }
+
+    private void ClearInlineErrors()
+    {
+        SkuError = null;
+        NameError = null;
+        CurrencyCodeError = null;
+        DealerPriceError = null;
+        MsrpPriceError = null;
+        StockQuantityError = null;
+        FocusField = null;
+        OnPropertyChanged(nameof(CanSave));
+    }
+
+    private bool ValidateAll()
+    {
+        ValidateSku();
+        ValidateName();
+        ValidateCurrencyCode();
+        ValidateDealerPrice();
+        ValidateMsrpPrice();
+        ValidateStockQuantity();
+        FocusField = FirstInvalidField();
+        OnPropertyChanged(nameof(CanSave));
+        return CanSave;
+    }
+
+    private string? FirstInvalidField()
+    {
+        if (!string.IsNullOrWhiteSpace(SkuError)) return "Sku";
+        if (!string.IsNullOrWhiteSpace(NameError)) return "Name";
+        if (!string.IsNullOrWhiteSpace(CurrencyCodeError)) return "CurrencyCode";
+        if (!string.IsNullOrWhiteSpace(StockQuantityError)) return "StockQuantity";
+        if (!string.IsNullOrWhiteSpace(DealerPriceError)) return "DealerPrice";
+        if (!string.IsNullOrWhiteSpace(MsrpPriceError)) return "MsrpPrice";
+        return null;
+    }
+
+    private void ValidateSku()
+    {
+        var s = (Sku ?? "").Trim();
+        SkuError = string.IsNullOrWhiteSpace(s) ? "SKU gerekli." : null;
+    }
+
+    private void ValidateName()
+    {
+        var s = (Name ?? "").Trim();
+        NameError = string.IsNullOrWhiteSpace(s) ? "Ürün adı gerekli." : null;
+    }
+
+    private void ValidateCurrencyCode()
+    {
+        var raw = (CurrencyCode ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            CurrencyCodeError = "Para birimi gerekli (örn: TRY).";
+            return;
+        }
+        if (raw.Length != 3 || !raw.All(char.IsLetter))
+        {
+            CurrencyCodeError = "3 harf olmalı (örn: TRY).";
+            return;
+        }
+        CurrencyCodeError = null;
+    }
+
+    private void ValidateDealerPrice()
+    {
+        if (string.IsNullOrWhiteSpace(DealerPriceText))
+        {
+            DealerPriceError = "Gerekli.";
+            return;
+        }
+        DealerPriceError = TryParseDecimalFlexible(DealerPriceText, out var v) && v >= 0
+            ? null
+            : "Geçersiz.";
+    }
+
+    private void ValidateMsrpPrice()
+    {
+        if (string.IsNullOrWhiteSpace(MsrpPriceText))
+        {
+            MsrpPriceError = "Gerekli.";
+            return;
+        }
+        MsrpPriceError = TryParseDecimalFlexible(MsrpPriceText, out var v) && v >= 0
+            ? null
+            : "Geçersiz.";
+    }
+
+    private void ValidateStockQuantity()
+    {
+        if (string.IsNullOrWhiteSpace(StockQuantityText))
+        {
+            StockQuantityError = "Gerekli.";
+            return;
+        }
+        StockQuantityError = TryParseIntFlexible(StockQuantityText, out var v) && v >= 0
+            ? null
+            : "Geçersiz.";
     }
 }
 
